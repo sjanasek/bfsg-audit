@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="logo" onclick="location.href='/'"><img src="logo.png"></div>
+  <a href="/warenkorb"><svg viewBox="0 0 10 10"></svg></a>
+  <h1>Kaffeebohnen</h1>
+  <h4>Sorten</h4>
+  <img src="bohnen.jpg">
+  <button><i class="icon-plus"></i></button>
+  <button type="button">In den Warenkorb</button>
+  <iframe src="https://player.example.com/v/1"></iframe>
+  <video src="promo.mp4" autoplay></video>
+  <form action="/kasse">
+    <input type="email" name="email" placeholder="E-Mail">
+    <input type="text" name="plz" id="plz"><label>PLZ</label>
+    <input type="password" name="pw" autocomplete="off" onpaste="return false">
+    <select name="land" onchange="this.form.submit()"><option>DE</option></select>
+    <span tabindex="3">Info</span>
+  </form>
+  <p>Mehr zur Lieferung <a href="/versand">hier</a>.</p>
+</body>
+</html>

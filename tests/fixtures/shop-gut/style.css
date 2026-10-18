@@ -1,0 +1,2 @@
+:focus { outline: none; }
+:focus-visible { outline: 3px solid #1a56db; }

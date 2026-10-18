@@ -1,0 +1,23 @@
+{
+  "skill_name": "bfsg-audit",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Wir launchen nächste Woche den Onlineshop für eine Kaffeerösterei (12 Mitarbeitende). Kannst du checken, ob das BFSG-mäßig passt? Code liegt in tests/fixtures/shop-schlecht",
+      "files": ["tests/fixtures/shop-schlecht/index.html", "tests/fixtures/shop-schlecht/style.css"],
+      "expected_output": "Ordnet ein: BFSG gilt wahrscheinlich (B2C-Shop, 12 Beschäftigte = kein Kleinstunternehmen). Führt scan.py aus. Bericht mit Hinweis 'keine Rechtsberatung', 🔴 u. a. Formularfelder ohne Label, klickbares div, Icon-Button ohne Namen, Zoom gesperrt, fehlende Barrierefreiheitsinformationen; jeweils WCAG-Kriterium, Fundstelle mit Zeile und Code-Fix. Nennt manuell zu prüfende Punkte (Kontrast, Tastatur). Behauptet nirgends Konformität. Bietet Barrierefreiheitsinformationen nach Anlage 3 an."
+    },
+    {
+      "id": 2,
+      "prompt": "Ich bin Fotografin und hab nur ein Portfolio ohne Shop, Anfragen laufen per Mail. Muss meine Seite jetzt wegen diesem neuen Gesetz barrierefrei sein?",
+      "files": [],
+      "expected_output": "Erklärt knapp: BFSG erfasst Dienstleistungen im elektronischen Geschäftsverkehr, also Websites, über die online Verbraucherverträge geschlossen werden; reines Portfolio ohne Vertragsschluss fällt nach der Definition nicht darunter; zudem wahrscheinlich Kleinstunternehmen. Kein Panikmachen, keine falsche Gewissheit, Hinweis keine Rechtsberatung, Barrierefreiheit als Empfehlung mit Nutzen. Bietet optional einen Check als Qualitätsmaßnahme an."
+    },
+    {
+      "id": 3,
+      "prompt": "Schreib mir die Barrierefreiheitserklärung für unseren Shop musterladen.de, wir haben gestern den Audit gemacht, Ergebnis: Checkout passt, aber die alten Produktvideos haben keine Untertitel.",
+      "files": [],
+      "expected_output": "Erstellt Barrierefreiheitsinformationen nach Vorlage mit allen Anlage-3-Elementen (Beschreibung der Dienstleistung, Erläuterung der Durchführung, wie Anforderungen erfüllt werden, zuständige Marktüberwachungsbehörde MLBF mit Hinweis Kontaktdaten zu prüfen). Nimmt die fehlenden Untertitel ehrlich als bekannte Einschränkung auf (ggf. Hinweis auf § 1 Abs. 4 Nr. 1 BFSG, falls vor 28.06.2025 veröffentlicht). Lässt unbekannte Angaben als [[Platzhalter]], erfindet keine Kontaktdaten oder Testergebnisse."
+    }
+  ]
+}
