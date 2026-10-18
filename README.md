@@ -65,7 +65,7 @@ skills/bfsg-audit/
 
 ## Rechtsstand
 
-Geprüft am amtlichen Text (gesetze-im-internet.de) mit Stand **18.10.2026**: §§ 1, 2, 3, 14, 17, 37, 38 und Anlage 3 BFSG, §§ 12, 19 BFSGV. Maßstab ist WCAG 2.1 AA über EN 301 549 V3.2.1. Die neue EN 301 549 V4.1.1 (WCAG 2.2, September 2026) ist noch nicht im EU-Amtsblatt zitiert — die WCAG-2.2-Kriterien prüft der Skill bereits als Empfehlung mit.
+Geprüft am amtlichen Text (gesetze-im-internet.de) mit Stand **18.10.2026**: §§ 1, 2, 3, 14, 17, 37, 38 und Anlage 3 BFSG, §§ 12, 19 BFSGV. Maßstab ist WCAG 2.1 AA, die De-facto-Referenz über EN 301 549 V3.2.1. Eine im EU-Amtsblatt zitierte harmonisierte Norm zum BFSG/EAA gibt es noch nicht; die neue EN 301 549 V4.1.1 (WCAG 2.2, September 2026) ist ebenfalls noch nicht zitiert. Die WCAG-2.2-Kriterien prüft der Skill bereits als Empfehlung mit.
 
 Rechtsänderung entdeckt? Bitte ein Issue mit Quelle (Gesetzestext, Urteil mit Aktenzeichen, Behördendokument) eröffnen.
 

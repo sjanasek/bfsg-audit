@@ -47,7 +47,7 @@ Bei Bedarf `--tags` um `wcag22aa` ergänzen. Hast du Browser-Tools, zusätzlich 
 
 ### 4. Bewerten
 
-Ordne jeden bestätigten Befund einem WCAG-Erfolgskriterium zu (`references/wcag-pruefliste.md`). Prüfe die **Brennpunkte nach § 19 BFSGV zuerst**: Login, Captcha, Checkout, Zahlung — dort werden Barrieren am teuersten, und genau dort verlangt die Verordnung es ausdrücklich.
+Ordne jeden bestätigten Befund einem WCAG-Erfolgskriterium zu (`references/wcag-pruefliste.md`). Prüfe die **Brennpunkte zuerst**: Login, Captcha, Checkout, Zahlung — dort werden Barrieren am teuersten, und § 19 BFSGV hebt Identifizierungs-, Authentifizierungs-, Sicherheits- und Zahlungsfunktionen eigens hervor.
 
 Schweregrade (bei "BFSG gilt"):
 - 🔴 **Kritisch**: blockiert eine Kernaufgabe für eine Nutzergruppe — Checkout/Login nicht per Tastatur bedienbar, Formular ohne Labels, Captcha ohne Alternative, Tastaturfalle, Zoom gesperrt, fehlende Barrierefreiheitsinformationen (§ 14 Abs. 1 Nr. 2 BFSG)
@@ -58,7 +58,7 @@ Schweregrade (bei "BFSG gilt"):
 
 ```markdown
 # BFSG-Audit: [Projekt/Domain]
-Stand: [Datum] · Maßstab: WCAG 2.1 AA (EN 301 549 V3.2.1), WCAG 2.2 als Empfehlung
+Stand: [Datum] · Maßstab: WCAG 2.1 AA (De-facto-Referenz EN 301 549 V3.2.1), WCAG 2.2 als Empfehlung
 > Technische Vorprüfung, keine Rechtsberatung. Ein Code-Audit ersetzt keine Prüfung mit Screenreader und echten Nutzer:innen.
 
 ## Gilt das BFSG?

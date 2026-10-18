@@ -1,6 +1,6 @@
 # Prüfliste WCAG 2.1 AA (+ 2.2) für Websites
 
-Maßstab: WCAG 2.1 Level AA (über EN 301 549 V3.2.1). Kriterien, die erst mit WCAG 2.2 dazukommen, sind mit **[2.2]** markiert → 🟡 Empfehlung, solange EN 301 549 V4.1.1 nicht im Amtsblatt zitiert ist (siehe `rechtsrahmen.md`).
+Maßstab: WCAG 2.1 Level AA (De-facto-Referenz über EN 301 549 V3.2.1). Kriterien, die erst mit WCAG 2.2 dazukommen, sind mit **[2.2]** markiert → 🟡 Empfehlung, solange keine Norm mit WCAG 2.2 zum EAA im Amtsblatt zitiert ist (siehe `rechtsrahmen.md`).
 
 Legende: ⚙️ = findet `scripts/scan.py` statisch · 🧪 = findet ein Runtime-Tool (axe-core) · 👤 = nur manuell prüfbar
 
@@ -28,7 +28,7 @@ Fix-Code zu den häufigsten Punkten: `fix-muster.md`.
 | 1.3.5 Zweck von Eingaben (AA) | `autocomplete` bei Name, E-Mail, Telefon, Adresse, Zahlungsdaten | ⚙️ | `autocomplete="email"` usw. |
 | 1.4.1 Farbe (A) | Info nicht nur über Farbe (Pflichtfelder rot, Links nur farbig) | 👤 | Text/Icon zusätzlich, Links unterstreichen |
 | 1.4.2 Audio-Steuerung (A) | Kein Autoplay mit Ton > 3 s ohne Stopp | ⚙️ | `autoplay` entfernen oder `muted` |
-| 1.4.3 Kontrast (AA) | Text ≥ 4,5:1, großer Text (≥ 24px bzw. ≥ 18,66px fett) ≥ 3:1 | 🧪 | Farben anpassen; Platzhaltertext beachten |
+| 1.4.3 Kontrast (AA) | Text ≥ 4,5:1, großer Text (≥ 18 pt bzw. ≥ 14 pt fett, ≈ 24 px / 18,67 px) ≥ 3:1 | 🧪 | Farben anpassen; Platzhaltertext beachten |
 | 1.4.4 Textgröße (AA) | 200 % Zoom ohne Verlust; Zoom nicht gesperrt | ⚙️👤 | `user-scalable=no` / `maximum-scale=1` entfernen; `rem` statt `px` für Schrift |
 | 1.4.5 Bilder von Text (AA) | Kein Text als Bild (außer Logo) | 👤 | echten Text verwenden |
 | 1.4.10 Reflow (AA) | Bei 320 CSS-px Breite kein horizontales Scrollen | 👤 (Browser auf 320px / 400 % Zoom) | responsive Layout, `overflow-wrap` |
@@ -70,7 +70,7 @@ Fix-Code zu den häufigsten Punkten: `fix-muster.md`.
 | 3.3.3 Fehlerkorrektur (AA) | Korrekturvorschlag ("Bitte gültige PLZ mit 5 Ziffern") | 👤 | — |
 | 3.3.4 Fehlervermeidung (AA) | **Bestellung**: Prüfen, korrigieren oder stornieren vor Abschluss möglich | 👤 | Bestellübersicht vor "zahlungspflichtig bestellen" |
 | 3.3.7 Redundante Eingabe [2.2] (A) | Bereits eingegebene Daten nicht erneut verlangen (Rechnungs-/Lieferadresse) | 👤 | "Lieferadresse = Rechnungsadresse" |
-| 3.3.8 Barrierefreie Authentifizierung [2.2] (AA) | Login ohne kognitiven Test (Rätsel-Captcha), Einfügen in Passwortfelder erlaubt, Passwortmanager funktionieren | ⚙️ (paste-Blocker, `autocomplete="off"` an Passwort) 👤 | paste erlauben, `autocomplete="current-password"`, Captcha-Alternative |
+| 3.3.8 Barrierefreie Authentifizierung [2.2] (AA) | Login ohne kognitiven Funktionstest (Rätsel, Rechenaufgabe, Passwort abtippen ohne Hilfsmittel) — Objekterkennung ist auf AA ausgenommen; Einfügen in Passwortfelder erlaubt, Passwortmanager funktionieren | ⚙️ (paste-Blocker, `autocomplete="off"` an Passwort) 👤 | paste erlauben, `autocomplete="current-password"`, Captcha-Alternative |
 
 ## 4. Robust
 
@@ -81,10 +81,10 @@ Fix-Code zu den häufigsten Punkten: `fix-muster.md`.
 
 ## 5. Brennpunkte nach § 19 BFSGV
 
-Login, Captcha, Checkout und Zahlung sind ausdrücklich genannt. Hier zuerst und am gründlichsten prüfen:
+§ 19 BFSGV nennt Identifizierungs-, Authentifizierungs-, Sicherheits- und Zahlungsfunktionen. Daraus folgt (eigene Ableitung, nicht Wortlaut): Login, Captcha, Checkout und Zahlung zuerst und am gründlichsten prüfen:
 
 - **Login/Registrierung**: Labels, Fehlermeldungen, Passwort-Einfügen erlaubt (3.3.8), sichtbarer Fokus, "Passwort anzeigen"-Button mit Namen und Zustand.
-- **Captcha**: Bild-/Puzzle-Captcha ohne Alternative = Barriere (1.1.1, 3.3.8). Besser: unsichtbare Verfahren, Honeypot, Rate-Limit — Datenschutz der Alternative mitdenken.
+- **Captcha**: Ein Captcha ohne Alternative in einer anderen Sinnesmodalität (z. B. nur Bild, kein Audio) verletzt 1.1.1. Rätsel- und Rechenaufgaben verletzen zusätzlich 3.3.8 [2.2]. Objekterkennung ("wähle alle Ampeln") ist von 3.3.8 auf Stufe AA ausgenommen — erst 3.3.9 (AAA) schließt sie aus. Besser: unsichtbare Verfahren, Honeypot, Rate-Limit — Datenschutz der Alternative mitdenken.
 - **Checkout**: Schritte als Überschriften, Fortschritt als Text, Fehler je Feld, `autocomplete` für Adresse/Zahlung, Bestellübersicht vor Abschluss (3.3.4), Session-Timeout (2.2.1).
 - **Zahlungs-Widgets** (Stripe Elements, PayPal-Buttons, Klarna, Mollie): Sind iframes betitelt? Per Tastatur erreichbar? Eigene Wrapper um Fremd-Widgets prüfen. Barrieren im Widget selbst → beim Anbieter melden und im Bericht als ❓ "Drittanbieter-Komponente, Barrierefreiheitsangaben des Anbieters anfordern" führen (§ 1 Abs. 4 Nr. 4 BFSG greift nur, wenn der Betreiber den Inhalt weder finanziert, entwickelt noch kontrolliert — beim selbst eingebundenen Checkout regelmäßig nicht).
 - **Rechtliche Seiten** (AGB, Widerruf, Datenschutz, Barrierefreiheitsinfos): selbst barrierefrei — und nicht als PDF ohne Tags.
