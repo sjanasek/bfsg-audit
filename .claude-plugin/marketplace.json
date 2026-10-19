@@ -1,10 +1,10 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
-  "name": "GITHUB_USER",
-  "description": "Skills von AUTOR_NAME — digitale Barrierefreiheit (BFSG) für Websites und Shops in Deutschland.",
+  "name": "sjanasek",
+  "description": "Skills von sjanasek — digitale Barrierefreiheit (BFSG) für Websites und Shops in Deutschland.",
   "owner": {
-    "name": "AUTOR_NAME",
-    "url": "https://github.com/GITHUB_USER"
+    "name": "sjanasek",
+    "url": "https://github.com/sjanasek"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "description": "BFSG-Check für Entwickler: Anwendungsbereich, WCAG-2.1-AA-Audit mit Code-Fixes, Barrierefreiheitsinformationen nach Anlage 3.",
       "version": "1.0.0",
       "category": "development",
-      "author": { "name": "AUTOR_NAME", "url": "https://github.com/GITHUB_USER" }
+      "author": { "name": "sjanasek", "url": "https://github.com/sjanasek" }
     }
   ]
 }

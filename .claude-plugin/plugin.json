@@ -4,12 +4,12 @@
   "version": "1.0.0",
   "description": "Barrierefreiheit nach dem Barrierefreiheitsstärkungsgesetz (BFSG) für Entwickler: klärt, ob das BFSG gilt, prüft Code und Seiten gegen WCAG 2.1 AA mit Fundstelle und Code-Fix und erstellt die Informationen zur Barrierefreiheit nach Anlage 3 BFSG.",
   "author": {
-    "name": "AUTOR_NAME",
-    "url": "https://github.com/GITHUB_USER"
+    "name": "sjanasek",
+    "url": "https://github.com/sjanasek"
   },
   "license": "MIT",
-  "homepage": "https://github.com/GITHUB_USER/bfsg-audit",
-  "repository": "https://github.com/GITHUB_USER/bfsg-audit",
+  "homepage": "https://github.com/sjanasek/bfsg-audit",
+  "repository": "https://github.com/sjanasek/bfsg-audit",
   "keywords": ["BFSG", "Barrierefreiheit", "accessibility", "a11y", "WCAG", "EN 301 549", "European Accessibility Act", "EAA", "Germany", "Barrierefreiheitserklärung"],
   "skills": ["./skills/bfsg-audit"]
 }

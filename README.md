@@ -18,8 +18,8 @@ Seit dem 28.06.2025 müssen viele Online-Shops und Buchungsseiten in Deutschland
 ### Claude Code
 
 ```
-/plugin marketplace add GITHUB_USER/bfsg-audit
-/plugin install bfsg-audit@GITHUB_USER
+/plugin marketplace add sjanasek/bfsg-audit
+/plugin install bfsg-audit@sjanasek
 ```
 
 ### Manuell / Claude.ai
@@ -105,8 +105,8 @@ Reports are written in German, since that is what clients and authorities in Ger
 
 **Install (Claude Code):**
 ```
-/plugin marketplace add GITHUB_USER/bfsg-audit
-/plugin install bfsg-audit@GITHUB_USER
+/plugin marketplace add sjanasek/bfsg-audit
+/plugin install bfsg-audit@sjanasek
 ```
 
 **Scanner only (Python 3.9+, no dependencies):** `python3 skills/bfsg-audit/scripts/scan.py <folder|url> [--json]`
