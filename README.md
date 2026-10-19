@@ -4,6 +4,10 @@
 
 [English version below](#english)
 
+![Demo: Scan eines Beispiel-Shops findet 5 kritische und 12 wichtige Barrieren mit WCAG-Kriterium und Fundstelle; nach den Fixes 0 kritische und 0 wichtige](assets/demo.gif)
+
+<sub>Gekürzte Darstellung echter Scan-Ergebnisse für `tests/fixtures/shop-schlecht` und der reparierten Fassung `tests/fixtures/shop-repariert`.</sub>
+
 Seit dem 28.06.2025 müssen viele Online-Shops und Buchungsseiten in Deutschland barrierefrei sein. Die meisten Tools sagen dir *dass* etwas fehlt. Dieser Skill sagt dir:
 
 1. **Ob das BFSG für die Seite überhaupt gilt** — B2C-Vertragsschluss? Kleinstunternehmen? Ausnahmen? Alles mit Fundstelle im Gesetz.

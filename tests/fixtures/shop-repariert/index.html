@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kaffeebohnen – Musterladen</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#inhalt">Zum Inhalt springen</a>
+  <header><a href="/"><img src="logo.png" alt="Musterladen – Startseite"></a>
+  <a href="/warenkorb" aria-label="Warenkorb"><svg viewBox="0 0 10 10" aria-hidden="true"></svg></a></header>
+  <main id="inhalt">
+  <h1>Kaffeebohnen</h1>
+  <h2>Sorten</h2>
+  <img src="bohnen.jpg" alt="Geröstete Kaffeebohnen in einer Schale">
+  <button type="button" aria-label="Menge erhöhen"><i class="icon-plus" aria-hidden="true"></i></button>
+  <button type="button">In den Warenkorb</button>
+  <div role="status" id="live"></div>
+  <iframe src="https://player.example.com/v/1" title="Video: So rösten wir unseren Kaffee"></iframe>
+  <video src="promo.mp4" controls></video>
+  <form action="/kasse">
+    <label for="email">E-Mail</label>
+    <input type="email" id="email" name="email" autocomplete="email">
+    <label for="plz">PLZ</label>
+    <input type="text" name="plz" id="plz" autocomplete="postal-code">
+    <label for="pw">Passwort</label>
+    <input type="password" id="pw" name="pw" autocomplete="current-password">
+    <label for="land">Land</label>
+    <select id="land" name="land"><option>DE</option></select>
+    <button type="submit">Weiter</button>
+  </form>
+  <p><a href="/versand">Mehr zu Lieferzeiten und Versandkosten</a></p>
+  </main>
+  <footer><a href="/barrierefreiheit">Barrierefreiheit</a></footer>
+</body>
+</html>

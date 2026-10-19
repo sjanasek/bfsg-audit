@@ -58,6 +58,15 @@ class GuterShop(unittest.TestCase):
         self.assertNotIn("keine-bf-info", self.f)
 
 
+class ReparierterShop(unittest.TestCase):
+    """Gleiche Seite wie shop-schlecht nach den Fixes — Grundlage des Demo-GIFs."""
+
+    def test_keine_kritischen_oder_wichtigen(self):
+        f, _ = run("shop-repariert")
+        schwer = [k for k, v in f.items() if v["severity"] in ("kritisch", "wichtig")]
+        self.assertEqual(schwer, [], schwer)
+
+
 class Frameworks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
