@@ -115,6 +115,12 @@ const BUILTIN_META = {
 };
 
 // Laufzeit-Prüfungen, die es nur hier gibt (auch zusätzlich zu axe)
+// Ergänzende Prüfung, die auch zusätzlich zu axe läuft
+const EXTRA_META = {
+  'placeholder-label': ['wichtig', 'Platzhalter statt Beschriftung', '3.3.2 Beschriftungen oder Anweisungen (A)',
+    'Der Platzhalter verschwindet beim Tippen, danach fehlt die Beschriftung. Sichtbares <label for=…> ergänzen.'],
+};
+
 const KEYBOARD_META = {
   'focus-not-visible': ['wichtig', 'Fokus beim Tabben nicht sichtbar', '2.4.7 Fokus sichtbar (AA)',
     'Per Tab erreichtes Element zeigt keinen Fokusrahmen. :focus-visible { outline: 3px solid … } ergänzen.'],
@@ -177,7 +183,7 @@ function builtinAudit() {
   const vp = document.querySelector('meta[name=viewport]');
   if (vp && /user-scalable\s*=\s*(no|0)|maximum-scale\s*=\s*1(\.0)?\b/.test(vp.content)) add('meta-viewport', vp);
   document.querySelectorAll('img').forEach(i => { if (!i.hasAttribute('alt') && i.getAttribute('role') !== 'presentation' && i.getAttribute('role') !== 'none' && !i.closest('[aria-hidden=true]') && !i.getAttribute('aria-label')) add('image-alt', i); });
-  document.querySelectorAll('input,select,textarea').forEach(f => { if (['hidden', 'submit', 'button', 'reset', 'image'].includes((f.type || '').toLowerCase()) || !visible(f)) return; const n = (f.labels && [...f.labels].some(l => l.textContent.trim())) || f.getAttribute('aria-label') || f.getAttribute('aria-labelledby') || f.getAttribute('title'); if (!n) add('label', f); });
+  document.querySelectorAll('input,select,textarea').forEach(f => { if (['hidden', 'submit', 'button', 'reset', 'image'].includes((f.type || '').toLowerCase()) || !visible(f)) return; const n = (f.labels && [...f.labels].some(l => l.textContent.trim())) || f.getAttribute('aria-label') || f.getAttribute('aria-labelledby') || f.getAttribute('title'); if (!n && !(f.getAttribute('placeholder') || '').trim()) add('label', f); });
   document.querySelectorAll('button,[role=button]').forEach(b => { if (visible(b) && !accName(b)) add('button-name', b); });
   document.querySelectorAll('a[href]').forEach(a => { if (visible(a) && !accName(a)) add('link-name', a); });
   document.querySelectorAll('iframe').forEach(f => { if (!f.title && !f.getAttribute('aria-label') && f.getAttribute('aria-hidden') !== 'true') add('frame-title', f); });
@@ -206,6 +212,18 @@ function builtinAudit() {
     if (ratio + 1e-9 < need) add('color-contrast', el, `${ratio.toFixed(2)}:1, nötig ${need}:1 (${cs.color} auf rgb(${Math.round(bg.r)},${Math.round(bg.g)},${Math.round(bg.b)}), ${size}px)`);
   }
   return { violations: out, incomplete: inc };
+}
+
+// Eingabefelder, deren einzige Beschriftung der Platzhalter ist (axe wertet ihn als Namen).
+function placeholderOnly() {
+  const out = [];
+  document.querySelectorAll('input[placeholder],textarea[placeholder]').forEach(f => {
+    const r = f.getBoundingClientRect(); if (!r.width || !r.height) return;
+    if (['hidden', 'submit', 'button', 'reset', 'image', 'checkbox', 'radio'].includes((f.type || '').toLowerCase())) return;
+    const labelled = (f.labels && [...f.labels].some(l => l.textContent.trim())) || f.getAttribute('aria-label') || f.getAttribute('aria-labelledby') || f.getAttribute('title');
+    if (!labelled && f.getAttribute('placeholder').trim()) out.push({ html: f.outerHTML.replace(/\s+/g, ' ').slice(0, 140) });
+  });
+  return out;
 }
 
 // Merkt sich den Stil eines Elements, um Fokus-Änderungen zu erkennen.
@@ -314,6 +332,11 @@ async function auditPage(context, url, opts, axeSrc, axeLocale, report) {
       const m = report.manual['color-contrast'] || (report.manual['color-contrast'] = { help: 'Kontrast über Hintergrundbildern, Verläufen oder Transparenz', wcag: '1.4.3 (AA)', count: 0, examples: [] });
       m.count += r.incomplete.length; if (m.examples.length < 3) m.examples.push(`${finalUrl} → ${r.incomplete[0].target}`);
     }
+  }
+
+  for (const p of await page.evaluate(placeholderOnly)) {
+    const [sev, title, wcag, hint] = EXTRA_META['placeholder-label'];
+    findingFor(report, 'placeholder-label', sev, title, wcag, hint).locations.push(`${finalUrl} → ${p.html}`);
   }
 
   for (const k of await keyboardWalk(page)) {

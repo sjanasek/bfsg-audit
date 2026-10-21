@@ -84,9 +84,10 @@ class EingebauteRegeln(BrowserScanBase):
         code, data, _ = run(f"{self.base}/browser/js-shop/index.html", "--no-axe")
         self.assertEqual(code, 0)
         f = ids(data)
-        for rid in ("label", "button-name", "image-alt", "color-contrast", "focus-not-visible"):
+        for rid in ("placeholder-label", "button-name", "image-alt", "color-contrast", "focus-not-visible"):
             self.assertIn(rid, f, rid)
-        self.assertEqual(f["label"]["severity"], "kritisch")
+        self.assertNotIn("label", f)  # Platzhalter vorhanden -> eigene Regel statt "kein Name"
+        self.assertEqual(f["button-name"]["severity"], "kritisch")
         self.assertIn("2.61:1", " ".join(f["color-contrast"]["locations"]))
         self.assertIn("buy", " ".join(f["focus-not-visible"]["locations"]))
 
@@ -134,9 +135,9 @@ class MitAxe(BrowserScanBase):
     def test_js_gerenderte_seite(self):
         _, data, _ = run(f"{self.base}/browser/js-shop/index.html")
         f = ids(data)
-        for rid in ("axe:label", "axe:button-name", "axe:image-alt", "axe:color-contrast", "focus-not-visible"):
+        for rid in ("axe:button-name", "axe:image-alt", "axe:color-contrast", "placeholder-label", "focus-not-visible"):
             self.assertIn(rid, f, rid)
-        self.assertEqual(f["axe:label"]["severity"], "kritisch")
+        self.assertEqual(f["axe:button-name"]["severity"], "kritisch")
 
     def test_deutsche_texte(self):
         _, data, _ = run(f"{self.base}/browser/js-shop/index.html")
@@ -146,7 +147,7 @@ class MitAxe(BrowserScanBase):
         # Seite verbietet fremde Skripte; axe muss trotzdem laufen.
         _, data, _ = run(f"{self.base}/browser/csp/index.html")
         self.assertTrue(data["engine"].startswith("axe-core"))
-        self.assertIn("axe:label", ids(data))
+        self.assertIn("axe:image-alt", ids(data))
 
     def test_reparierte_seite_ohne_kritische(self):
         _, data, _ = run(f"{self.base}/shop-repariert/index.html")
