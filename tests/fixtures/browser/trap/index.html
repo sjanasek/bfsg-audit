@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><title>Tastaturfalle – Testseite</title></head>
+<body>
+  <main>
+    <h1>Newsletter</h1>
+    <label for="mail">E-Mail</label>
+    <input id="mail" type="email" autocomplete="email">
+    <a href="/datenschutz">Datenschutz</a>
+  </main>
+  <script>
+    // Fehlerhaftes Widget: hält den Fokus im Eingabefeld fest
+    document.getElementById('mail').addEventListener('keydown', e => { if (e.key === 'Tab') e.preventDefault(); });
+  </script>
+</body>
+</html>
