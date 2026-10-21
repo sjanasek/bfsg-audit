@@ -11,9 +11,12 @@
       "name": "bfsg-audit",
       "source": "./",
       "description": "BFSG-Check für Entwickler: Anwendungsbereich, WCAG-2.1-AA-Audit mit Code-Fixes, Barrierefreiheitsinformationen nach Anlage 3.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "development",
-      "author": { "name": "sjanasek", "url": "https://github.com/sjanasek" }
+      "author": {
+        "name": "sjanasek",
+        "url": "https://github.com/sjanasek"
+      }
     }
   ]
 }

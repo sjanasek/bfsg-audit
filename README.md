@@ -55,7 +55,27 @@ python3 skills/bfsg-audit/scripts/scan.py ./mein-projekt --json
 
 Er findet statisch u. a.: Bilder ohne Alternativtext, Formularfelder ohne Label, klickbare `div`s, Buttons/Links ohne Namen, entfernte Fokus-Rahmen, gesperrten Zoom, fehlende Sprache, Autoplay, blockiertes Einfügen in Passwortfelder, fehlendes `autocomplete`, positive `tabindex`, Overlays — in HTML, JSX/TSX, Vue, Svelte, Astro, PHP und CSS. Außerdem Indizien, ob die Seite ein Shop ist, und ob Barrierefreiheitsinformationen existieren.
 
-Was statisch nicht geht (Kontrast, Tastaturfallen, Screenreader), listet er ausdrücklich als "manuell zu prüfen" auf. Im Skill wird dafür, wenn möglich, zusätzlich [axe-core](https://github.com/dequelabs/axe-core) im Browser ausgeführt.
+Was statisch nicht geht, listet er ausdrücklich als "manuell zu prüfen" auf.
+
+### Prüfung im echten Browser (neu in 1.1)
+
+Für Kontraste, Inhalte, die erst per JavaScript entstehen, und Tastaturbedienung gibt es `browser-scan.mjs`. Es öffnet die Seite in Chromium, prüft sie mit [axe-core](https://github.com/dequelabs/axe-core) (WCAG 2.0–2.2, deutsche Meldungen) und tabbt einmal durch die Seite, um unsichtbaren Fokus und Tastaturfallen zu finden. Ohne axe-core laufen eingebaute Regeln.
+
+Einmalig installieren (Node 18+):
+
+```bash
+npm install --prefix ~/.cache/bfsg-audit playwright axe-core
+~/.cache/bfsg-audit/node_modules/.bin/playwright install chromium
+```
+
+Prüfen, auch lokal während der Entwicklung:
+
+```bash
+node skills/bfsg-audit/scripts/browser-scan.mjs https://example.de
+node skills/bfsg-audit/scripts/browser-scan.mjs http://localhost:3000 --max-pages 10 --fail-on kritisch
+```
+
+Mit `--fail-on kritisch` eignet es sich als automatischer Check bei jedem Deployment. Details in der [Anleitung](docs/anleitung.md#8-die-browser-prüfung).
 
 ## Was drin ist
 
@@ -66,7 +86,8 @@ skills/bfsg-audit/
 ├── references/wcag-pruefliste.md             WCAG 2.1 AA + 2.2, Brennpunkte Login/Checkout/Zahlung (§ 19 BFSGV)
 ├── references/fix-muster.md                  Code-Muster für die häufigsten Barrieren
 ├── assets/barrierefreiheitsinformationen.md  Vorlage nach Anlage 3 BFSG
-└── scripts/scan.py                           Statischer Scanner (nur Standardbibliothek)
+├── scripts/scan.py                           Statischer Scanner (nur Standardbibliothek)
+└── scripts/browser-scan.mjs                  Prüfung im Browser: axe-core + Tastatur-Durchlauf (Node, Playwright)
 ```
 
 ## Rechtsstand
@@ -116,5 +137,7 @@ Reports are written in German, since that is what clients and authorities in Ger
 ```
 
 **Scanner only (Python 3.9+, no dependencies):** `python3 skills/bfsg-audit/scripts/scan.py <folder|url> [--json]`
+
+**Browser scan (Node 18+, Playwright, axe-core):** `node skills/bfsg-audit/scripts/browser-scan.mjs <url> [--max-pages N] [--mobile] [--fail-on kritisch]` — renders the page, runs axe-core and a keyboard walk-through (visible focus, keyboard traps).
 
 License: MIT.

@@ -13,9 +13,10 @@ Diese Anleitung erklärt, wie du BFSG-Audit installierst, was der Skill prüft u
 5. [Fixes umsetzen lassen](#5-fixes-umsetzen-lassen)
 6. [Informationen zur Barrierefreiheit erstellen](#6-informationen-zur-barrierefreiheit-erstellen)
 7. [Den Scanner ohne Claude nutzen](#7-den-scanner-ohne-claude-nutzen)
-8. [Was automatisch nicht geprüft werden kann](#8-was-automatisch-nicht-geprüft-werden-kann)
-9. [Häufige Fragen](#9-häufige-fragen)
-10. [Hilfe und Feedback](#10-hilfe-und-feedback)
+8. [Die Browser-Prüfung](#8-die-browser-prüfung)
+9. [Was automatisch nicht geprüft werden kann](#9-was-automatisch-nicht-geprüft-werden-kann)
+10. [Häufige Fragen](#10-häufige-fragen)
+11. [Hilfe und Feedback](#11-hilfe-und-feedback)
 
 ## 1. Installation
 
@@ -50,7 +51,7 @@ Claude klärt, ob die Seite unter das Gesetz fällt. Entscheidend ist, ob online
 Ein Skript durchsucht HTML, Templates, Komponenten (React, Vue, Svelte, Astro, PHP …) und CSS nach typischen Barrieren.
 
 **Schritt 3 — Prüfung im Browser (wenn möglich)**
-Wenn die Umgebung es zulässt, prüft Claude die Seite zusätzlich im Browser, etwa Kontraste und Tastaturbedienung.
+Ist eine Adresse erreichbar (Live-Seite oder lokaler Entwicklungsserver), öffnet ein zweites Skript die Seite in einem echten Browser. Es prüft Kontraste und Inhalte, die erst per JavaScript entstehen, und tabbt einmal durch die Seite, um unsichtbaren Fokus und Tastaturfallen zu finden. Details in [Abschnitt 8](#8-die-browser-prüfung).
 
 **Schritt 4 — Bericht**
 Alle bestätigten Befunde, sortiert nach Schwere, mit WCAG-Kriterium, Fundstelle und Lösungsvorschlag.
@@ -112,19 +113,61 @@ Der Scanner findet nur, er repariert nichts. Die Fixes kommen von Claude.
 
 **Was er erkennt:** Bilder ohne Alternativtext, Formularfelder ohne Beschriftung, klickbare Elemente ohne Tastaturzugang, Buttons und Links ohne Namen, iframes ohne Titel, fehlende Seitensprache und Titel, entfernte Fokus-Rahmen, gesperrten Zoom, Autoplay mit Ton, blockiertes Einfügen in Passwortfelder, fehlendes `autocomplete`, positive `tabindex`-Werte, übersprungene Überschriftenebenen, Accessibility-Overlays und fehlende Barrierefreiheitsinformationen. Außerdem Hinweise, ob es sich um einen Shop handelt.
 
-## 8. Was automatisch nicht geprüft werden kann
+## 8. Die Browser-Prüfung
+
+Der statische Scanner sieht nur das HTML, das der Server ausliefert. Viele Shops und Web-Apps bauen ihren Inhalt aber erst im Browser per JavaScript auf, und Kontraste lassen sich nur mit den tatsächlich angezeigten Farben berechnen. Dafür gibt es ein zweites Skript: `skills/bfsg-audit/scripts/browser-scan.mjs`.
+
+**Was es prüft:**
+- die fertig aufgebaute Seite mit **axe-core**, dem verbreitetsten Werkzeug für automatische WCAG-Prüfungen (WCAG 2.0 bis 2.2, Meldungen auf Deutsch)
+- einen **Tastatur-Durchlauf**: Das Skript drückt nacheinander Tab und meldet Elemente, deren Fokus nicht sichtbar ist (WCAG 2.4.7), und Stellen, an denen der Fokus hängen bleibt (Tastaturfalle, WCAG 2.1.2)
+- auf Wunsch weitere Unterseiten derselben Domain, bevorzugt Warenkorb, Kasse, Login, Kontakt und Barrierefreiheit
+
+Ist axe-core nicht installiert, laufen eingebaute Regeln: Kontrast, Alternativtexte, Beschriftungen, Namen von Buttons und Links, Sprache, Seitentitel, gesperrter Zoom und einiges mehr. Welche Variante lief, steht im Bericht in der Zeile „Engine“.
+
+**Voraussetzungen:** Node 18 oder neuer, Playwright mit Chromium und, empfohlen, axe-core. Am einfachsten installierst du alles einmalig in einen eigenen Ordner, den das Skript automatisch findet:
+
+```bash
+npm install --prefix ~/.cache/bfsg-audit playwright axe-core
+~/.cache/bfsg-audit/node_modules/.bin/playwright install chromium
+```
+
+Wenn Claude die Prüfung übernimmt, fragt es vorher, ob es das installieren darf.
+
+**Aufruf** (aus dem Repository-Ordner):
+
+```bash
+node skills/bfsg-audit/scripts/browser-scan.mjs https://example.de
+node skills/bfsg-audit/scripts/browser-scan.mjs http://localhost:3000 --max-pages 10
+node skills/bfsg-audit/scripts/browser-scan.mjs https://example.de --mobile --json
+```
+
+| Option | Bedeutung |
+|---|---|
+| `--max-pages N` | zusätzlich bis zu N Unterseiten derselben Domain (Standard 5) |
+| `--mobile` | Smartphone-Ansicht (390 × 844 px) |
+| `--json` | Ausgabe als JSON |
+| `--fail-on kritisch` | Exit-Code 1, wenn kritische Befunde vorliegen (auch `wichtig`), z. B. für automatische Prüfungen bei jedem Deployment |
+| `--no-axe` | nur die eingebauten Regeln verwenden |
+
+**Gut zu wissen:**
+- Die Fundstellen sind CSS-Selektoren im Browser, z. B. `#app > main > form > input`. Die zugehörige Datei im Projekt findest du über Klassen, IDs oder Text. Wenn Claude die Prüfung macht, sucht es die Stelle im Code selbst.
+- Das Skript lädt axe-core auch auf Seiten mit strenger Content-Security-Policy, ohne die Seite zu verändern.
+- Es klickt nicht durch Formulare, Logins oder Cookie-Banner. Was dahinter liegt, muss man gesondert prüfen.
+- Es ruft nur die angegebenen Seiten auf, wie ein normaler Browser, und sendet keine Daten an Dritte.
+
+## 9. Was automatisch nicht geprüft werden kann
 
 Viele Barrieren lassen sich nur von Menschen finden. Der Bericht listet diese Punkte ausdrücklich auf:
 
-- Farbkontraste (im Browser mit Kontrast-Tool oder axe-core)
-- Tastaturbedienung: Seite nur mit Tab, Enter und Esc bedienen
+- Farbkontraste über Hintergrundbildern, Verläufen oder Transparenz (der Browser-Scan meldet sie als „manuell prüfen“)
+- Tastaturbedienung von Menüs, Dialogen und Formularen: Seite nur mit Tab, Enter und Esc bedienen (der Browser-Scan tabbt nur einmal durch)
 - Vergrößerung auf 200 % und Ansicht bei 320 px Breite
 - Qualität von Alternativtexten, Linktexten und Fehlermeldungen
 - Untertitel und Audiodeskription bei Videos
 - eingebettete Fremd-Widgets wie Zahlung, Captcha oder Chat
 - Test der wichtigsten Abläufe mit einem Screenreader (z. B. NVDA oder VoiceOver)
 
-## 9. Häufige Fragen
+## 10. Häufige Fragen
 
 **Ist meine Seite nach der Prüfung BFSG-konform?**
 Das kann kein automatisches Werkzeug bescheinigen. Der Skill findet technische Barrieren im Code. Für Konformität gehören auch manuelle Tests, Inhalte und Dokumente dazu.
@@ -141,6 +184,6 @@ Nein, bewusst nicht. Das sind eigene Themen mit eigenen Gesetzen.
 **Kostet das etwas?**
 Nein. BFSG-Audit ist kostenlos und Open Source (MIT-Lizenz).
 
-## 10. Hilfe und Feedback
+## 11. Hilfe und Feedback
 
 Fehler gefunden, Frage oder Idee? Eröffne ein [Issue auf GitHub](https://github.com/sjanasek/bfsg-audit/issues). Rechtsänderungen bitte mit Quelle (Gesetzestext, Urteil mit Aktenzeichen oder Behördendokument).

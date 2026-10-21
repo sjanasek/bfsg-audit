@@ -16,6 +16,12 @@ jobs:
           npm install --no-save --no-package-lock playwright@1.56.0 axe-core@4.11.4
           npx playwright install --with-deps chromium
       - name: Tests
-        run: python3 -m unittest discover tests -v
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 -m unittest discover tests -v 2>&1 | tee test.log || { python3 .github/scripts/annotate_failures.py test.log; exit 1; }
       - name: axe-core-Tests müssen gelaufen sein
-        run: python3 -m unittest tests.test_browser_scan.MitAxe -v 2>&1 | tee axe.log; ! grep -q "skipped" axe.log
+        shell: bash
+        run: |
+          python3 -m unittest tests.test_browser_scan.MitAxe -v 2>&1 | tee axe.log
+          if grep -q "skipped" axe.log; then echo "::error::axe-core-Tests wurden übersprungen"; exit 1; fi

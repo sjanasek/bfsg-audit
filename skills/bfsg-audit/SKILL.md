@@ -37,13 +37,24 @@ Nur Python-Standardbibliothek. Der Scanner findet Muster, keine Wahrheiten: Prü
 
 ### 3. Runtime-Prüfung (wenn möglich)
 
-Statische Analyse findet etwa die Hälfte der automatisch prüfbaren Fehler; Kontrast, berechnete Namen und dynamische Zustände brauchen einen Browser. Wenn Node verfügbar ist und eine URL (auch `localhost`) erreichbar ist:
+Die statische Analyse sieht nur das ausgelieferte HTML. Kontrast, Inhalte, die erst JavaScript aufbaut (React, Vue, Shopify …), und das Verhalten bei Tastaturbedienung brauchen einen Browser. Dafür gibt es `scripts/browser-scan.mjs`. Es braucht eine erreichbare URL — eine Live-Seite oder den lokalen Entwicklungsserver (`http://localhost:…`):
 
 ```bash
-npx @axe-core/cli <url> --tags wcag2a,wcag2aa,wcag21a,wcag21aa --exit
+node scripts/browser-scan.mjs <url> [--max-pages N] [--mobile] [--json]
 ```
 
-Bei Bedarf `--tags` um `wcag22aa` ergänzen. Hast du Browser-Tools, zusätzlich selbst prüfen: Seite nur mit Tab/Shift+Tab/Enter/Esc durchgehen (Fokus sichtbar? Fallen? Reihenfolge?), auf 320px Breite / 400 % Zoom stellen, Cookie-Banner und Checkout durchklicken. Kein Browser verfügbar → im Bericht unter "Manuell zu prüfen" auflisten, nicht weglassen.
+Das Skript lädt die Seite in Chromium, prüft sie mit **axe-core** (WCAG 2.0–2.2, deutsche Texte) und macht zusätzlich einen **Tastatur-Durchlauf**: Es tabbt durch die Seite und meldet Elemente ohne sichtbaren Fokus (2.4.7) und Tastaturfallen (2.1.2). Ist axe-core nicht installiert, laufen eingebaute Regeln (Kontrast, Alternativtexte, Beschriftungen, Namen, Sprache, Titel) — das Ergebnis sagt in der Zeile „Engine“, welche Variante lief. Die Fundstellen sind CSS-Selektoren; die zugehörige Datei im Projekt suchst du über Klassen, IDs oder Textinhalt.
+
+**Voraussetzungen:** Node 18+, Playwright mit Chromium, empfohlen axe-core. Fehlen sie (Exit-Code 3), frag die Nutzerin bzw. den Nutzer, bevor du etwas installierst — es wird ein Browser heruntergeladen. Installiere dann nicht ins Projekt, sondern in einen eigenen Ordner, den das Skript automatisch findet:
+
+```bash
+npm install --prefix ~/.cache/bfsg-audit playwright axe-core
+~/.cache/bfsg-audit/node_modules/.bin/playwright install chromium
+```
+
+Was der Browser-Scan nicht abdeckt, prüfst du, wenn du Browser-Tools hast, selbst: Zoom 400 % bzw. 320 px Breite, Cookie-Banner und Checkout durchklicken, Formular-Fehlermeldungen auslösen. Kein Browser verfügbar → im Bericht unter "Manuell zu prüfen" auflisten, nicht weglassen.
+
+Für automatische Prüfungen in CI/CD: `--fail-on kritisch` (oder `wichtig`) liefert Exit-Code 1, wenn solche Befunde vorliegen.
 
 ### 4. Bewerten
 
