@@ -10,6 +10,22 @@
   "license": "MIT",
   "homepage": "https://github.com/sjanasek/bfsg-audit",
   "repository": "https://github.com/sjanasek/bfsg-audit",
-  "keywords": ["BFSG", "Barrierefreiheit", "accessibility", "a11y", "WCAG", "EN 301 549", "European Accessibility Act", "EAA", "Germany", "Barrierefreiheitserklärung"],
-  "skills": ["./skills/bfsg-audit"]
+  "keywords": [
+    "BFSG",
+    "Barrierefreiheit",
+    "accessibility",
+    "a11y",
+    "WCAG",
+    "EN 301 549",
+    "European Accessibility Act",
+    "EAA",
+    "Germany",
+    "Barrierefreiheitserklärung"
+  ],
+  "skills": [
+    "./skills/bfsg-audit"
+  ],
+  "documentationUrl": "https://github.com/sjanasek/bfsg-audit/blob/main/docs/anleitung.md",
+  "supportUrl": "https://github.com/sjanasek/bfsg-audit/issues",
+  "privacyPolicyUrl": "https://github.com/sjanasek/bfsg-audit/blob/main/PRIVACY.md"
 }

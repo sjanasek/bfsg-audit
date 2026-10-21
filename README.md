@@ -17,6 +17,8 @@ Seit dem 28.06.2025 müssen viele Online-Shops und Buchungsseiten in Deutschland
 
 > **Keine Rechtsberatung.** Technische Vorprüfung. Ein Code-Audit kann Barrieren finden, aber keine Konformität bescheinigen — Kontrast, Screenreader-Verhalten und Inhalte brauchen Tests im Browser und mit Menschen. Bei rechtlichen Fragen: Anwältin/Anwalt.
 
+Ausführliche Anleitung: [docs/anleitung.md](docs/anleitung.md) · Datenschutz: [PRIVACY.md](PRIVACY.md)
+
 ## Installation
 
 ### Claude Code
