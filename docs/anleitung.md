@@ -92,13 +92,12 @@ Angaben, die nur du kennst, bleiben als `[[Platzhalter]]` stehen. Der Skill erfi
 
 ## 7. Den Scanner ohne Claude nutzen
 
-Der Scanner ist ein eigenständiges Python-Skript ohne zusätzliche Pakete (Python 3.9 oder neuer):
+Der Scanner ist ein eigenständiges Python-Skript ohne zusätzliche Pakete (Python 3.9 oder neuer). Er liegt im Repository unter `skills/bfsg-audit/scripts/scan.py`. Lade das Repository von GitHub herunter, schau dir das Skript gern vorher an, und starte es dann aus dem Repository-Ordner:
 
 ```bash
-git clone https://github.com/sjanasek/bfsg-audit
-python3 bfsg-audit/skills/bfsg-audit/scripts/scan.py ./mein-projekt
-python3 bfsg-audit/skills/bfsg-audit/scripts/scan.py https://example.de
-python3 bfsg-audit/skills/bfsg-audit/scripts/scan.py ./mein-projekt --json
+python3 skills/bfsg-audit/scripts/scan.py ./mein-projekt
+python3 skills/bfsg-audit/scripts/scan.py https://example.de
+python3 skills/bfsg-audit/scripts/scan.py ./mein-projekt --json
 ```
 
 | Option | Bedeutung |
