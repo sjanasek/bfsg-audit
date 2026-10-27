@@ -77,7 +77,7 @@ node skills/bfsg-audit/scripts/browser-scan.mjs http://localhost:3000 --max-page
 
 Mit `--fail-on kritisch` eignet es sich als automatischer Check bei jedem Deployment.
 
-**Zustände durchklicken (neu in 1.2):** Mit `--states zustaende.json` prüft der Scan nicht nur die geladene Seite, sondern auch geöffnete Dialoge, Validierungsfehler oder den gefüllten Warenkorb. Der Bericht zeigt in einer Tabelle, welche Zustände geprüft, fehlgeschlagen oder noch manuell offen sind. Vorlage: `skills/bfsg-audit/assets/zustaende-beispiel.json`. Danke an Sascha Eisner für die Idee. Details in der [Anleitung](docs/anleitung.md#8-die-browser-prüfung).
+**Zustände durchklicken (neu in 1.2):** Mit `--states zustaende.json` prüft der Scan nicht nur die geladene Seite, sondern auch geöffnete Dialoge, Validierungsfehler oder den gefüllten Warenkorb. Der Bericht zeigt in einer Tabelle, welche Zustände geprüft, fehlgeschlagen oder noch manuell offen sind. Vorlage: `skills/bfsg-audit/assets/zustaende-beispiel.json`. Details in der [Anleitung](docs/anleitung.md#8-die-browser-prüfung).
 
 ## Was drin ist
 

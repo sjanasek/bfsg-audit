@@ -98,7 +98,7 @@ function resolveDep(name, paths) {
 // Zustände
 // ---------------------------------------------------------------------------
 
-// Was ohne Zustandsdatei typischerweise offen bleibt (nach Sascha Eisners Vorschlag):
+// Was ohne Zustandsdatei typischerweise offen bleibt:
 const DEFAULT_OPEN_STATES = [
   'Warenkorb leer und gefüllt',
   'Validierungsfehler in Formularen (z. B. leer abgeschickt)',
