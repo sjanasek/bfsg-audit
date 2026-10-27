@@ -23,5 +23,5 @@ jobs:
       - name: axe-core-Tests müssen gelaufen sein
         shell: bash
         run: |
-          python3 -m unittest tests.test_browser_scan.MitAxe -v 2>&1 | tee axe.log
+          python3 -m unittest tests.test_browser_scan.MitAxe tests.test_browser_scan.ZustaendeMitAxe -v 2>&1 | tee axe.log
           if grep -q "skipped" axe.log; then echo "::error::axe-core-Tests wurden übersprungen"; exit 1; fi

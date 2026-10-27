@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kaffeebohnen – Zustände-Testseite</title>
+  <style>
+    body { font-family: sans-serif; color: #111; background: #fff; }
+    .error { color: #ff8a8a; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Kaffeebohnen</h1>
+    <button type="button" id="groessen">Größentabelle</button>
+    <dialog id="tabelle">
+      <h2>Größentabelle</h2>
+      <!-- Fehler, die erst bei geöffnetem Dialog sichtbar sind -->
+      <input type="text" name="menge">
+      <button type="button" id="schliessen"><svg width="12" height="12" aria-hidden="true"></svg></button>
+    </dialog>
+
+    <h2>Newsletter</h2>
+    <form id="newsletter" novalidate>
+      <label for="mail">E-Mail</label>
+      <input id="mail" type="email" autocomplete="email" required>
+      <button type="submit" id="anmelden">Anmelden</button>
+      <p id="fehler" class="error" hidden>Bitte eine gültige E-Mail-Adresse eingeben.</p>
+    </form>
+    <a href="warenkorb.html">Warenkorb</a>
+  </main>
+  <script>
+    document.getElementById('groessen').addEventListener('click', () => document.getElementById('tabelle').showModal());
+    document.getElementById('schliessen').addEventListener('click', () => document.getElementById('tabelle').close());
+    document.getElementById('newsletter').addEventListener('submit', e => {
+      e.preventDefault();
+      if (!document.getElementById('mail').value) document.getElementById('fehler').hidden = false;
+    });
+  </script>
+</body>
+</html>

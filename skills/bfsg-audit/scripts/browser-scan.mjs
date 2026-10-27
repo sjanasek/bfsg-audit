@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SEV_ORDER = { kritisch: 0, wichtig: 1, empfehlung: 2, hinweis: 3 };
 const SEV_ICON = { kritisch: '🔴', wichtig: '🟠', empfehlung: '🟡', hinweis: 'ℹ️' };
@@ -36,7 +36,7 @@ const MAX_LOCS = 8;
 // ---------------------------------------------------------------------------
 
 function parseArgs(argv) {
-  const o = { urls: [], maxPages: 5, json: false, mobile: false, failOn: null, noAxe: false, timeout: 30000 };
+  const o = { urls: [], maxPages: null, json: false, mobile: false, failOn: null, noAxe: false, timeout: 30000, states: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--json') o.json = true;
@@ -45,21 +45,28 @@ function parseArgs(argv) {
     else if (a === '--max-pages') o.maxPages = Math.max(0, parseInt(argv[++i], 10) || 0);
     else if (a === '--timeout') o.timeout = Math.max(5000, parseInt(argv[++i], 10) || 30000);
     else if (a === '--fail-on') o.failOn = argv[++i];
+    else if (a === '--states') o.states = argv[++i];
     else if (a === '-h' || a === '--help') o.help = true;
     else if (a.startsWith('--')) throw new Error(`Unbekannte Option: ${a}`);
     else o.urls.push(/^https?:\/\//.test(a) ? a : `https://${a}`);
   }
   if (o.failOn && !(o.failOn in SEV_ORDER)) throw new Error('--fail-on erwartet "kritisch" oder "wichtig"');
   if (process.env.BFSG_NO_AXE === '1') o.noAxe = true;
+  // Mit Zustandsdatei werden standardmäßig keine weiteren Unterseiten gesucht
+  if (o.maxPages === null) o.maxPages = o.states ? 0 : 5;
   return o;
 }
 
 const HELP = `BFSG-Audit Browser-Scan ${VERSION}
 
   node browser-scan.mjs <url> [weitere URLs] [Optionen]
+  node browser-scan.mjs [<basis-url>] --states zustaende.json [Optionen]
 
 Optionen:
-  --max-pages N      zusätzlich bis zu N Unterseiten derselben Domain prüfen (Standard 5)
+  --states DATEI     Zustände aus einer JSON-Datei durchklicken und einzeln prüfen
+                     (z. B. leerer Warenkorb, Validierungsfehler, geöffneter Dialog)
+  --max-pages N      zusätzlich bis zu N Unterseiten derselben Domain prüfen
+                     (Standard 5, mit --states 0)
   --mobile           mit Smartphone-Ansicht (390 × 844) prüfen
   --json             Ausgabe als JSON
   --fail-on STUFE    Exit-Code 1, wenn Befunde ab "kritisch" bzw. "wichtig" vorliegen (für CI)
@@ -85,6 +92,76 @@ function searchPaths() {
 function resolveDep(name, paths) {
   const req = createRequire(join(HERE, 'noop.js'));
   try { return req.resolve(name, { paths }); } catch { return null; }
+}
+
+// ---------------------------------------------------------------------------
+// Zustände
+// ---------------------------------------------------------------------------
+
+// Was ohne Zustandsdatei typischerweise offen bleibt (nach Sascha Eisners Vorschlag):
+const DEFAULT_OPEN_STATES = [
+  'Warenkorb leer und gefüllt',
+  'Validierungsfehler in Formularen (z. B. leer abgeschickt)',
+  'Geöffnete Dialoge, Menüs, Akkordeons und Tooltips',
+  'Cookie-Banner und Cookie-Einstellungen',
+  'Login, Registrierung und Kundenkonto',
+  'Bestellabschluss und Bestätigungsseite',
+];
+
+const STEP_KINDS = ['click', 'fill', 'select', 'check', 'press', 'waitFor', 'wait', 'goto', 'hover'];
+
+function loadStates(file, baseArg) {
+  let data;
+  try { data = JSON.parse(readFileSync(file, 'utf8')); }
+  catch (e) { throw new Error(`Zustandsdatei nicht lesbar: ${file} (${e.message})`); }
+  const list = Array.isArray(data) ? data : data.states;
+  if (!Array.isArray(list) || !list.length) throw new Error('Zustandsdatei braucht eine Liste "states".');
+  const base = baseArg || data.baseUrl || null;
+  return list.map((st, i) => {
+    if (!st || typeof st.name !== 'string' || !st.name.trim()) throw new Error(`Zustand ${i + 1}: "name" fehlt.`);
+    let url = null;
+    if (!st.manual) {
+      if (!st.url) throw new Error(`Zustand "${st.name}": "url" fehlt.`);
+      try { url = new URL(st.url, base || undefined).href; }
+      catch { throw new Error(`Zustand "${st.name}": URL "${st.url}" ungültig — relative Pfade brauchen eine Basis-URL (Argument oder "baseUrl").`); }
+    } else if (st.url) {
+      try { url = new URL(st.url, base || undefined).href; } catch { url = st.url; }
+    }
+    const steps = st.steps || [];
+    steps.forEach((step, j) => {
+      const kind = STEP_KINDS.find(k => k in step);
+      if (!kind) throw new Error(`Zustand "${st.name}", Schritt ${j + 1}: unbekannter Schritt ${JSON.stringify(step)}. Erlaubt: ${STEP_KINDS.join(', ')}`);
+    });
+    return { name: st.name.trim(), url, steps, manual: st.manual || null, note: st.note || '' };
+  });
+}
+
+function describeStep(step) {
+  if ('click' in step) return `klicken: ${step.click}`;
+  if ('fill' in step) return `ausfüllen: ${step.fill}`;
+  if ('select' in step) return `auswählen: ${step.select}`;
+  if ('check' in step) return `ankreuzen: ${step.check}`;
+  if ('press' in step) return `Taste ${step.press}${step.on ? ` in ${step.on}` : ''}`;
+  if ('waitFor' in step) return `warten auf: ${step.waitFor}`;
+  if ('wait' in step) return `${step.wait} ms warten`;
+  if ('goto' in step) return `öffnen: ${step.goto}`;
+  if ('hover' in step) return `Maus über: ${step.hover}`;
+  return JSON.stringify(step);
+}
+
+async function runStep(page, step, timeout) {
+  const loc = sel => page.locator(sel).first();
+  const t = { timeout: Math.min(timeout, 10000) };
+  if ('click' in step) await loc(step.click).click(t);
+  else if ('fill' in step) await loc(step.fill).fill(String(step.value ?? ''), t);
+  else if ('select' in step) await loc(step.select).selectOption(String(step.value ?? ''), t);
+  else if ('check' in step) await loc(step.check).check(t);
+  else if ('hover' in step) await loc(step.hover).hover(t);
+  else if ('press' in step) { if (step.on) await loc(step.on).press(step.press, t); else await page.keyboard.press(step.press); }
+  else if ('waitFor' in step) await loc(step.waitFor).waitFor({ state: 'visible', ...t });
+  else if ('wait' in step) await page.waitForTimeout(Math.min(+step.wait || 0, 10000));
+  else if ('goto' in step) await page.goto(new URL(step.goto, page.url()).href, { waitUntil: 'load', timeout });
+  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -301,6 +378,20 @@ async function auditPage(context, url, opts, axeSrc, axeLocale, report) {
   }
   const finalUrl = page.url();
   report.pages.push({ url: finalUrl, status, title: await page.title() });
+  const counts = await auditCurrent(page, 'Nach dem Laden', opts, axeSrc, axeLocale, report);
+  report.states.push({ name: 'Nach dem Laden', url: finalUrl, status: 'geprüft', steps: [], counts, note: status !== 'ok' ? status : '' });
+
+  const links = await page.evaluate(() => [...document.querySelectorAll('a[href]')].map(a => ({ href: a.href, text: (a.textContent || '').trim() })));
+  await page.close();
+  return links;
+}
+
+// Prüft den aktuellen Zustand einer Seite; liefert die Zahl neuer Fundstellen je Schweregrad.
+async function auditCurrent(page, label, opts, axeSrc, axeLocale, report) {
+  const finalUrl = page.url();
+  const where = `[${label}] ${finalUrl}`;
+  const before = {};
+  for (const f of Object.values(report.findings)) before[f.id] = f.locations.length;
 
   if (axeSrc) {
     await page.addScriptTag({ content: axeSrc });
@@ -314,11 +405,11 @@ async function auditPage(context, url, opts, axeSrc, axeLocale, report) {
     report.engine = `axe-core ${r.version}`;
     for (const v of r.violations) {
       const f = findingFor(report, `axe:${v.id}`, axeSeverity(v), v.help, wcagFromTags(v.tags), `${v.description} Mehr: ${v.helpUrl}`);
-      v.nodes.forEach(n => f.locations.push(`${finalUrl} → ${n.target}  ${n.html}${n.summary ? `  — ${n.summary}` : ''}`));
+      v.nodes.forEach(n => f.locations.push(`${where} → ${n.target}  ${n.html}${n.summary ? `  — ${n.summary}` : ''}`));
     }
     for (const v of r.incomplete) {
       const m = report.manual[v.id] || (report.manual[v.id] = { help: v.help, wcag: wcagFromTags(v.tags), count: 0, examples: [] });
-      m.count += v.nodes.length; if (m.examples.length < 3) m.examples.push(`${finalUrl} → ${v.nodes[0]?.target || ''}`);
+      m.count += v.nodes.length; if (m.examples.length < 3) m.examples.push(`${where} → ${v.nodes[0]?.target || ''}`);
     }
   } else {
     report.engine = 'eingebaute Regeln (axe-core nicht installiert)';
@@ -326,28 +417,63 @@ async function auditPage(context, url, opts, axeSrc, axeLocale, report) {
     for (const v of r.violations) {
       const [sev, title, wcag, hint] = BUILTIN_META[v.rule];
       const f = findingFor(report, v.rule, sev, title, wcag, hint);
-      f.locations.push(`${finalUrl} → ${v.target}  ${v.html}${v.extra ? `  — ${v.extra}` : ''}`);
+      f.locations.push(`${where} → ${v.target}  ${v.html}${v.extra ? `  — ${v.extra}` : ''}`);
     }
     if (r.incomplete.length) {
       const m = report.manual['color-contrast'] || (report.manual['color-contrast'] = { help: 'Kontrast über Hintergrundbildern, Verläufen oder Transparenz', wcag: '1.4.3 (AA)', count: 0, examples: [] });
-      m.count += r.incomplete.length; if (m.examples.length < 3) m.examples.push(`${finalUrl} → ${r.incomplete[0].target}`);
+      m.count += r.incomplete.length; if (m.examples.length < 3) m.examples.push(`${where} → ${r.incomplete[0].target}`);
     }
   }
 
   for (const p of await page.evaluate(placeholderOnly)) {
     const [sev, title, wcag, hint] = EXTRA_META['placeholder-label'];
-    findingFor(report, 'placeholder-label', sev, title, wcag, hint).locations.push(`${finalUrl} → ${p.html}`);
+    findingFor(report, 'placeholder-label', sev, title, wcag, hint).locations.push(`${where} → ${p.html}`);
   }
 
   for (const k of await keyboardWalk(page)) {
     const [sev, title, wcag, hint] = KEYBOARD_META[k.rule];
     const f = findingFor(report, k.rule, sev, title, wcag, hint);
-    f.locations.push(`${finalUrl}${k.html ? ` → ${k.html}` : ''}`);
+    f.locations.push(`${where}${k.html ? ` → ${k.html}` : ''}`);
   }
 
-  const links = await page.evaluate(() => [...document.querySelectorAll('a[href]')].map(a => ({ href: a.href, text: (a.textContent || '').trim() })));
-  await page.close();
-  return links;
+  const counts = { kritisch: 0, wichtig: 0, empfehlung: 0, hinweis: 0 };
+  for (const f of Object.values(report.findings)) counts[f.severity] += f.locations.length - (before[f.id] || 0);
+  return counts;
+}
+
+// Öffnet einen Zustand aus der Zustandsdatei, führt die Schritte aus und prüft ihn.
+async function auditState(context, st, opts, axeSrc, axeLocale, report) {
+  const entry = { name: st.name, url: st.url, status: '', steps: st.steps.map(describeStep), counts: null, note: st.note };
+  report.states.push(entry);
+  if (st.manual) { entry.status = 'manuell offen'; entry.note = typeof st.manual === 'string' ? st.manual : (st.note || 'manuell prüfen'); return; }
+  const page = await context.newPage();
+  try {
+    try {
+      const resp = await page.goto(st.url, { waitUntil: 'load', timeout: opts.timeout });
+      await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+      if (resp && resp.status() >= 400) entry.note = `HTTP ${resp.status()}`;
+    } catch (e) {
+      entry.status = 'fehlgeschlagen'; entry.note = `Seite nicht geladen: ${e.message.split('\n')[0]}`; return;
+    }
+    for (let i = 0; i < st.steps.length; i++) {
+      try { await runStep(page, st.steps[i], opts.timeout); }
+      catch (e) {
+        entry.status = 'fehlgeschlagen';
+        const msg = e.message.split('\n')[0];
+        const why = /Timeout/i.test(msg) ? 'Element nicht gefunden, nicht sichtbar oder nicht bedienbar (Zeitlimit überschritten)'
+          : /strict mode violation/i.test(msg) ? 'Selektor passt auf mehrere Elemente' : msg.slice(0, 160);
+        entry.note = `Schritt ${i + 1} (${describeStep(st.steps[i])}): ${why}`;
+        return;
+      }
+    }
+    await page.waitForTimeout(300);
+    if (!report.pages.some(p => p.url === page.url())) report.pages.push({ url: page.url(), status: 'ok', title: await page.title() });
+    entry.url = page.url();
+    entry.counts = await auditCurrent(page, st.name, opts, axeSrc, axeLocale, report);
+    entry.status = 'geprüft';
+  } finally {
+    await page.close();
+  }
 }
 
 function findingFor(report, id, severity, title, wcag, hint) {
@@ -364,6 +490,30 @@ function renderMd(report) {
     `Geprüfte Seiten (${report.pages.length}): ${report.pages.map(p => p.url + (p.status !== 'ok' ? ` [${p.status}]` : '')).join(', ')}`, '',
     'Treffer sind Hinweise — jeden im Kontext bestätigen. Fundstellen sind CSS-Selektoren im Browser; die Datei im Projekt muss man daraus ableiten.'];
   if (report.errors.length) out.push('', '**Nicht geprüft:** ' + report.errors.join('; '));
+
+  // Geprüfte Zustände
+  out.push('', '## Geprüfte Zustände', '', '| Zustand | Seite | Status | 🔴 | 🟠 | 🟡 |', '|---|---|---|---|---|---|');
+  const icon = { 'geprüft': '✅ geprüft', 'fehlgeschlagen': '⚠️ fehlgeschlagen', 'manuell offen': '👤 manuell offen' };
+  for (const st of report.states) {
+    const c = st.counts || {};
+    const n = k => (st.counts ? String(c[k]) : '–');
+    out.push(`| ${st.name.replace(/\|/g, '/')} | ${(st.url || '–').replace(/\|/g, '/')} | ${icon[st.status] || st.status} | ${n('kritisch')} | ${n('wichtig')} | ${n('empfehlung')} |`);
+  }
+  const notes = report.states.filter(st => st.note || st.steps.length);
+  if (notes.length) {
+    out.push('');
+    for (const st of notes) out.push(`- **${st.name}:**${st.steps.length ? ` Schritte: ${st.steps.join(' → ')}.` : ''}${st.note ? ` ${st.note}` : ''}`);
+  }
+  out.push('', '**Nicht geprüfte Zustände:**');
+  const open = report.states.filter(st => st.status !== 'geprüft').map(st => `${st.name}${st.status === 'fehlgeschlagen' ? ' (Schritte fehlgeschlagen, siehe oben)' : ''}`);
+  if (report.usedStatesFile) {
+    open.forEach(o => out.push(`- ${o}`));
+    out.push('- alle Zustände, die nicht in der Zustandsdatei stehen');
+  } else {
+    out.push('Geprüft wurde nur der Zustand direkt nach dem Laden. Diese typischen Zustände sind offen — mit `--states` lassen sie sich durchklicken:');
+    DEFAULT_OPEN_STATES.forEach(o => out.push(`- ${o}`));
+  }
+
   const items = Object.values(report.findings).sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity] || a.id.localeCompare(b.id));
   if (!items.length) out.push('', 'Keine automatisch prüfbaren Barrieren gefunden. Manuelle Prüfung trotzdem nötig.');
   let cur = null;
@@ -382,7 +532,7 @@ function renderMd(report) {
     '- Zoom 200 % und Ansicht bei 320 px Breite (1.4.4, 1.4.10)',
     '- Qualität von Alternativtexten, Linktexten und Fehlermeldungen',
     '- Untertitel und Audiodeskription bei Videos (1.2.x)',
-    '- Abläufe hinter Formularen, Logins und Cookie-Bannern (werden hier nicht durchgeklickt)');
+    '- alle unter „Nicht geprüfte Zustände“ genannten Zustände');
   return out.join('\n');
 }
 
@@ -393,7 +543,12 @@ function renderMd(report) {
 async function main() {
   let opts;
   try { opts = parseArgs(process.argv.slice(2)); } catch (e) { console.error(e.message); return 2; }
-  if (opts.help || !opts.urls.length) { console.log(HELP); return opts.help ? 0 : 2; }
+  if (opts.help || (!opts.urls.length && !opts.states)) { console.log(HELP); return opts.help ? 0 : 2; }
+  let states = null;
+  if (opts.states) {
+    try { states = loadStates(opts.states, opts.urls[0]); }
+    catch (e) { console.error(e.message); return 2; }
+  }
 
   const paths = searchPaths();
   const pwPath = resolveDep('playwright', paths) || resolveDep('playwright-core', paths);
@@ -425,14 +580,24 @@ async function main() {
     bypassCSP: true, // erlaubt das Einspielen von axe-core auch bei strenger Content-Security-Policy
     locale: 'de-DE', viewport, isMobile: opts.mobile, hasTouch: opts.mobile,
   });
-  const report = { version: VERSION, engine: '', viewport: opts.mobile ? 'mobil 390×844' : 'Desktop 1280×900', pages: [], errors: [], findings: {}, manual: {} };
+  const report = { version: VERSION, engine: '', viewport: opts.mobile ? 'mobil 390×844' : 'Desktop 1280×900', pages: [], errors: [], findings: {}, manual: {}, states: [], usedStatesFile: !!states };
 
-  const queue = [...opts.urls];
+  // Mit Zustandsdatei: die angegebenen URLs dienen als Basis, geprüft werden die Zustände
+  const queue = states ? [] : [...opts.urls];
   const seen = new Set(queue.map(u => u.split('#')[0]));
-  const origins = new Set(opts.urls.map(u => new URL(u).origin));
+  const origins = new Set([...opts.urls, ...(states || []).map(st => st.url).filter(Boolean)].map(u => { try { return new URL(u).origin; } catch { return null; } }).filter(Boolean));
   const prio = /barriere|accessib|warenkorb|cart|kasse|checkout|login|anmelden|konto|account|kontakt|buch|bestell/i;
   let extra = 0;
   try {
+    for (const st of states || []) {
+      await auditState(context, st, opts, axeSrc, axeLocale, report);
+      if (!report.engine) report.engine = axeSrc ? 'axe-core' : 'eingebaute Regeln (axe-core nicht installiert)';
+    }
+    if (states && opts.maxPages > 0) {
+      // optional zusätzlich Unterseiten ab der ersten geprüften Seite
+      const start = states.find(st => st.url && !st.manual)?.url;
+      if (start) { queue.push(start); seen.add(start); }
+    }
     while (queue.length) {
       const url = queue.shift();
       const links = await auditPage(context, url, opts, axeSrc, axeLocale, report);
@@ -452,7 +617,7 @@ async function main() {
   } else {
     console.log(renderMd(report));
   }
-  if (!report.pages.length) return 2;
+  if (!report.pages.length && !report.states.some(st => st.status === 'manuell offen')) return 2;
   if (opts.failOn) {
     const limit = SEV_ORDER[opts.failOn];
     if (Object.values(report.findings).some(f => SEV_ORDER[f.severity] <= limit)) return 1;

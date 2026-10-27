@@ -1,7 +1,7 @@
 {
   "name": "bfsg-audit",
   "displayName": "BFSG-Audit",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Barrierefreiheit nach dem Barrierefreiheitsstärkungsgesetz (BFSG) für Entwickler: klärt, ob das BFSG gilt, prüft Code und Seiten gegen WCAG 2.1 AA mit Fundstelle und Code-Fix und erstellt die Informationen zur Barrierefreiheit nach Anlage 3 BFSG.",
   "author": {
     "name": "sjanasek",

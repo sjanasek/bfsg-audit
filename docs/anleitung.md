@@ -147,13 +147,58 @@ node skills/bfsg-audit/scripts/browser-scan.mjs https://example.de --mobile --js
 | `--mobile` | Smartphone-Ansicht (390 × 844 px) |
 | `--json` | Ausgabe als JSON |
 | `--fail-on kritisch` | Exit-Code 1, wenn kritische Befunde vorliegen (auch `wichtig`), z. B. für automatische Prüfungen bei jedem Deployment |
+| `--states DATEI` | Zustände aus einer JSON-Datei durchklicken und einzeln prüfen (siehe unten) |
 | `--no-axe` | nur die eingebauten Regeln verwenden |
 
 **Gut zu wissen:**
 - Die Fundstellen sind CSS-Selektoren im Browser, z. B. `#app > main > form > input`. Die zugehörige Datei im Projekt findest du über Klassen, IDs oder Text. Wenn Claude die Prüfung macht, sucht es die Stelle im Code selbst.
 - Das Skript lädt axe-core auch auf Seiten mit strenger Content-Security-Policy, ohne die Seite zu verändern.
-- Es klickt nicht durch Formulare, Logins oder Cookie-Banner. Was dahinter liegt, muss man gesondert prüfen.
+- Ohne Zustandsdatei prüft es nur den Zustand direkt nach dem Laden und sagt im Bericht, welche typischen Zustände dadurch offen bleiben. Mit einer Zustandsdatei klickt es Abläufe durch (siehe unten).
 - Es ruft nur die angegebenen Seiten auf, wie ein normaler Browser, und sendet keine Daten an Dritte.
+
+### Zustände prüfen: Dialoge, Fehlermeldungen, Warenkorb
+
+Viele Barrieren zeigen sich erst, wenn man etwas tut: ein Dialog öffnet sich, ein Formular meldet einen Fehler, der Warenkorb füllt sich. Diese Zustände beschreibst du in einer kleinen JSON-Datei. Der Browser-Scan klickt sie durch und prüft jeden einzeln.
+
+```json
+{
+  "baseUrl": "http://localhost:3000",
+  "states": [
+    { "name": "Warenkorb leer", "url": "/warenkorb" },
+    { "name": "Größentabelle geöffnet", "url": "/produkte/kaffee",
+      "steps": [ { "click": "text=Größentabelle" }, { "waitFor": "dialog[open]" } ] },
+    { "name": "Kontakt: ungültige E-Mail", "url": "/kontakt",
+      "steps": [ { "fill": "#email", "value": "keine-mail" }, { "press": "Tab" }, { "waitFor": ".error" } ] },
+    { "name": "Bestellabschluss", "manual": "Nur mit Testzahlung prüfbar" }
+  ]
+}
+```
+
+Eine ausführliche Vorlage liegt unter `skills/bfsg-audit/assets/zustaende-beispiel.json`.
+
+```bash
+node skills/bfsg-audit/scripts/browser-scan.mjs --states zustaende.json
+```
+
+| Schritt | Bedeutung |
+|---|---|
+| `{ "click": "Selektor" }` | Element anklicken |
+| `{ "fill": "Selektor", "value": "Text" }` | Feld ausfüllen |
+| `{ "select": "Selektor", "value": "Option" }` | Option in einer Auswahlliste wählen |
+| `{ "check": "Selektor" }` | Checkbox ankreuzen |
+| `{ "hover": "Selektor" }` | Maus über ein Element bewegen (z. B. für Tooltips) |
+| `{ "press": "Taste" }` | Taste drücken, z. B. `Tab`, `Escape`, `Enter`; mit `"on": "Selektor"` in einem bestimmten Element |
+| `{ "waitFor": "Selektor" }` | warten, bis ein Element sichtbar ist |
+| `{ "wait": 500 }` | Millisekunden warten |
+| `{ "goto": "/pfad" }` | andere Seite öffnen |
+
+Selektoren funktionieren wie in Playwright: `#id`, `.klasse`, `[role=dialog]` oder `text=Größentabelle`.
+
+Im Bericht steht dann die Tabelle **„Geprüfte Zustände“**: Für jeden Zustand siehst du, ob er geprüft wurde, ob ein Schritt fehlgeschlagen ist (mit Grund) oder ob er bewusst manuell offen ist, und wie viele Befunde dort gefunden wurden. Jede Fundstelle nennt ihren Zustand, z. B. `[Größentabelle geöffnet]`. Darunter listet der Bericht alle Zustände, die nicht geprüft wurden.
+
+**Bitte beachten:**
+- Auf einer Live-Seite nichts absenden, bestellen oder buchen. Abläufe mit Folgen nur auf dem eigenen Rechner (`localhost`) oder einer Testumgebung prüfen.
+- Keine echten Passwörter oder Kundendaten in die Datei schreiben. Logins nur mit Testkonten, sonst als `manual` eintragen.
 
 ## 9. Was automatisch nicht geprüft werden kann
 

@@ -52,7 +52,21 @@ npm install --prefix ~/.cache/bfsg-audit playwright axe-core
 ~/.cache/bfsg-audit/node_modules/.bin/playwright install chromium
 ```
 
-Was der Browser-Scan nicht abdeckt, prüfst du, wenn du Browser-Tools hast, selbst: Zoom 400 % bzw. 320 px Breite, Cookie-Banner und Checkout durchklicken, Formular-Fehlermeldungen auslösen. Kein Browser verfügbar → im Bericht unter "Manuell zu prüfen" auflisten, nicht weglassen.
+**Zustände durchklicken (`--states`).** Ohne weitere Angaben prüft der Scan nur den Zustand direkt nach dem Laden — Fehler in geöffneten Dialogen, Validierungsmeldungen oder im gefüllten Warenkorb bleiben unsichtbar. Leg deshalb bei Shops und Formularen eine Zustandsdatei an. Vorlage: `assets/zustaende-beispiel.json`. Lies dafür den Code (Routen, Formulare, Dialoge, Menüs, Warenkorb) und beschreibe je Zustand die URL und die Schritte:
+
+```bash
+node scripts/browser-scan.mjs http://localhost:3000 --states zustaende.json
+```
+
+Schritte: `click`, `fill` + `value`, `select` + `value`, `check`, `hover`, `press` (optional `on`), `waitFor`, `wait` (ms), `goto`. Selektoren im Playwright-Format (`#id`, `.klasse`, `text=Größentabelle`, `[role=dialog]`). Zustände, die du nicht automatisieren kannst oder darfst, trägst du mit `"manual": "Begründung"` ein — sie erscheinen im Bericht als offen.
+
+Sicherheitsregeln für Zustände:
+- **Auf Live-Seiten nichts absenden, bestellen oder buchen.** Formular-Absenden, Warenkorb-Aktionen mit Folgen und Bestellabläufe nur auf `localhost` oder einer Testumgebung — auf einer Live-Seite vorher fragen.
+- **Keine echten Zugangsdaten** in die Zustandsdatei. Login-Zustände nur mit einem Testkonto, das die Nutzerin bzw. der Nutzer ausdrücklich nennt, sonst als `manual` eintragen.
+
+Der Bericht enthält eine Tabelle **„Geprüfte Zustände“** (geprüft / fehlgeschlagen / manuell offen, Befunde je Zustand) und eine Liste **„Nicht geprüfte Zustände“**. Übernimm beides in deinen Bericht: So sieht man, welche Teile eines Ablaufs geprüft sind und welche noch offen. Schlägt ein Zustand fehl, korrigiere den Selektor und lass ihn erneut laufen, statt ihn wegzulassen.
+
+Was der Browser-Scan nicht abdeckt, prüfst du, wenn du Browser-Tools hast, selbst: Zoom 400 % bzw. 320 px Breite, Fehlermeldungen auf Verständlichkeit. Kein Browser verfügbar → im Bericht unter "Manuell zu prüfen" auflisten, nicht weglassen.
 
 Für automatische Prüfungen in CI/CD: `--fail-on kritisch` (oder `wichtig`) liefert Exit-Code 1, wenn solche Befunde vorliegen.
 
@@ -90,6 +104,9 @@ Stand: [Datum] · Maßstab: WCAG 2.1 AA (De-facto-Referenz EN 301 549 V3.2.1), W
 ## 🟠 Wichtig
 ## 🟡 Empfehlung
 ## ❓ Offene Fragen
+## Geprüfte Zustände
+[Tabelle aus dem Browser-Scan: Zustand · Seite · Status · Befunde — plus nicht geprüfte Zustände]
+
 ## 👤 Manuell zu prüfen
 [was ohne Browser/Screenreader nicht prüfbar war — konkret, z. B. "Kontrast der grauen Preisangaben", "Stripe-Zahlungsformular mit NVDA"]
 ## ✅ Geprüft und in Ordnung

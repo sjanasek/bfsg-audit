@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0 — 2026-10-27
+
+- Neu: Zustände im Browser-Scan (`--states datei.json`) — Dialoge öffnen, Formulare mit Fehlern auslösen, Warenkorb füllen und jeden Zustand einzeln prüfen (Idee: Sascha Eisner)
+  - Schritte: click, fill, select, check, hover, press, waitFor, wait, goto
+  - Bericht mit Tabelle „Geprüfte Zustände“ (geprüft / fehlgeschlagen / manuell offen, Befunde je Zustand) und Liste der nicht geprüften Zustände
+  - Ohne Zustandsdatei nennt der Bericht die typischen offenen Zustände
+  - Vorlage `assets/zustaende-beispiel.json`, Sicherheitsregeln für Live-Seiten in SKILL.md
+
 ## 1.1.0 — 2026-10-21
 
 - Neu: `browser-scan.mjs` prüft Seiten im echten Browser (Chromium über Playwright)

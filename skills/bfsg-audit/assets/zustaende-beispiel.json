@@ -1,0 +1,76 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "states": [
+    {
+      "name": "Startseite",
+      "url": "/"
+    },
+    {
+      "name": "Cookie-Einstellungen geöffnet",
+      "url": "/",
+      "steps": [
+        { "click": "text=Einstellungen" },
+        { "waitFor": "[role=dialog]" }
+      ]
+    },
+    {
+      "name": "Hauptmenü mobil geöffnet",
+      "url": "/",
+      "steps": [
+        { "click": "button[aria-controls=menu]" },
+        { "waitFor": "#menu" }
+      ]
+    },
+    {
+      "name": "Produktseite",
+      "url": "/produkte/kaffeebohnen"
+    },
+    {
+      "name": "Größentabelle geöffnet",
+      "url": "/produkte/kaffeebohnen",
+      "steps": [
+        { "click": "text=Größentabelle" },
+        { "waitFor": "dialog[open]" }
+      ]
+    },
+    {
+      "name": "Warenkorb leer",
+      "url": "/warenkorb"
+    },
+    {
+      "name": "Warenkorb gefüllt",
+      "url": "/produkte/kaffeebohnen",
+      "steps": [
+        { "click": "text=In den Warenkorb" },
+        { "goto": "/warenkorb" },
+        { "waitFor": ".cart-item" }
+      ]
+    },
+    {
+      "name": "Kasse: Validierungsfehler",
+      "url": "/kasse",
+      "note": "Nur auf localhost oder Staging — auf der Live-Seite nichts absenden.",
+      "steps": [
+        { "click": "button[type=submit]" },
+        { "waitFor": "[aria-invalid=true]" }
+      ]
+    },
+    {
+      "name": "Kontaktformular: ungültige E-Mail",
+      "url": "/kontakt",
+      "steps": [
+        { "fill": "#email", "value": "keine-mail" },
+        { "press": "Tab" },
+        { "waitFor": ".error" }
+      ]
+    },
+    {
+      "name": "Login und Kundenkonto",
+      "manual": "Nur mit Testkonto prüfbar — keine echten Zugangsdaten in diese Datei schreiben."
+    },
+    {
+      "name": "Bestellabschluss und Bestätigung",
+      "manual": "Nur mit Testzahlung auf einer Testumgebung prüfbar."
+    }
+  ]
+}

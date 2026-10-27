@@ -75,7 +75,9 @@ node skills/bfsg-audit/scripts/browser-scan.mjs https://example.de
 node skills/bfsg-audit/scripts/browser-scan.mjs http://localhost:3000 --max-pages 10 --fail-on kritisch
 ```
 
-Mit `--fail-on kritisch` eignet es sich als automatischer Check bei jedem Deployment. Details in der [Anleitung](docs/anleitung.md#8-die-browser-prüfung).
+Mit `--fail-on kritisch` eignet es sich als automatischer Check bei jedem Deployment.
+
+**Zustände durchklicken (neu in 1.2):** Mit `--states zustaende.json` prüft der Scan nicht nur die geladene Seite, sondern auch geöffnete Dialoge, Validierungsfehler oder den gefüllten Warenkorb. Der Bericht zeigt in einer Tabelle, welche Zustände geprüft, fehlgeschlagen oder noch manuell offen sind. Vorlage: `skills/bfsg-audit/assets/zustaende-beispiel.json`. Danke an Sascha Eisner für die Idee. Details in der [Anleitung](docs/anleitung.md#8-die-browser-prüfung).
 
 ## Was drin ist
 
@@ -87,7 +89,8 @@ skills/bfsg-audit/
 ├── references/fix-muster.md                  Code-Muster für die häufigsten Barrieren
 ├── assets/barrierefreiheitsinformationen.md  Vorlage nach Anlage 3 BFSG
 ├── scripts/scan.py                           Statischer Scanner (nur Standardbibliothek)
-└── scripts/browser-scan.mjs                  Prüfung im Browser: axe-core + Tastatur-Durchlauf (Node, Playwright)
+├── assets/zustaende-beispiel.json            Vorlage für Zustände (Dialog, Validierungsfehler, Warenkorb …)
+└── scripts/browser-scan.mjs                  Prüfung im Browser: axe-core, Tastatur-Durchlauf, Zustände
 ```
 
 ## Rechtsstand

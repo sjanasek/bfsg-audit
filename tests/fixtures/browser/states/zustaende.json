@@ -1,0 +1,13 @@
+{
+  "states": [
+    { "name": "Produktseite geladen", "url": "produkt.html" },
+    { "name": "Größentabelle geöffnet", "url": "produkt.html",
+      "steps": [ { "click": "#groessen" }, { "waitFor": "dialog[open]" } ] },
+    { "name": "Newsletter: Validierungsfehler", "url": "produkt.html",
+      "steps": [ { "click": "#anmelden" }, { "waitFor": "#fehler" } ] },
+    { "name": "Warenkorb leer", "url": "warenkorb.html" },
+    { "name": "Gutschein eingelöst", "url": "warenkorb.html",
+      "steps": [ { "click": "#gutschein" } ] },
+    { "name": "Bestellabschluss", "manual": "Nur mit Testkonto und Testzahlung prüfbar" }
+  ]
+}

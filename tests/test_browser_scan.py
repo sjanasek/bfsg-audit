@@ -155,5 +155,89 @@ class MitAxe(BrowserScanBase):
         self.assertEqual(kritisch, [], kritisch)
 
 
+class Zustaende(BrowserScanBase):
+    """--states: Zustände durchklicken und einzeln prüfen."""
+
+    STATES = os.path.join(FIX, "browser", "states", "zustaende.json")
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        _, cls.data, _ = run(f"{cls.base}/browser/states/", "--no-axe", "--states", cls.STATES)
+
+    def state(self, name):
+        return next(st for st in self.data["states"] if st["name"] == name)
+
+    def test_status_je_zustand(self):
+        self.assertEqual(self.state("Produktseite geladen")["status"], "geprüft")
+        self.assertEqual(self.state("Größentabelle geöffnet")["status"], "geprüft")
+        self.assertEqual(self.state("Newsletter: Validierungsfehler")["status"], "geprüft")
+        self.assertEqual(self.state("Warenkorb leer")["status"], "geprüft")
+        self.assertEqual(self.state("Gutschein eingelöst")["status"], "fehlgeschlagen")
+        self.assertIn("Schritt 1", self.state("Gutschein eingelöst")["note"])
+        self.assertEqual(self.state("Bestellabschluss")["status"], "manuell offen")
+
+    def test_dialogfehler_nur_im_dialog_zustand(self):
+        f = ids(self.data)
+        for rid in ("label", "button-name"):
+            locs = f[rid]["locations"]
+            self.assertTrue(all(l.startswith("[Größentabelle geöffnet]") for l in locs), locs)
+        self.assertEqual(self.state("Produktseite geladen")["counts"]["kritisch"], 0)
+        self.assertEqual(self.state("Größentabelle geöffnet")["counts"]["kritisch"], 2)
+
+    def test_fehlermeldung_erst_nach_absenden(self):
+        locs = " ".join(ids(self.data)["color-contrast"]["locations"])
+        self.assertIn("[Newsletter: Validierungsfehler]", locs)
+        self.assertIn("#fehler", locs)
+        self.assertIn("[Warenkorb leer]", locs)
+
+    def test_bericht_listet_zustaende(self):
+        p = subprocess.run(["node", SCRIPT, f"{self.base}/browser/states/", "--states", self.STATES, "--no-axe"],
+                           capture_output=True, text=True, timeout=180)
+        self.assertIn("## Geprüfte Zustände", p.stdout)
+        self.assertIn("👤 manuell offen", p.stdout)
+        self.assertIn("alle Zustände, die nicht in der Zustandsdatei stehen", p.stdout)
+
+    def test_ohne_zustandsdatei_standardliste(self):
+        p = subprocess.run(["node", SCRIPT, f"{self.base}/browser/js-shop/index.html", "--max-pages", "0", "--no-axe"],
+                           capture_output=True, text=True, timeout=180)
+        self.assertIn("Nach dem Laden", p.stdout)
+        self.assertIn("Validierungsfehler in Formularen", p.stdout)
+
+    def test_ungueltige_zustandsdatei(self):
+        bad = os.path.join(FIX, "browser", "states", "kaputt.json.tmp")
+        with open(bad, "w") as fh:
+            fh.write('{"states": [{"name": "X", "url": "a.html", "steps": [{"tanzen": "#x"}]}]}')
+        try:
+            p = subprocess.run(["node", SCRIPT, f"{self.base}/", "--states", bad], capture_output=True, text=True, timeout=60)
+            self.assertEqual(p.returncode, 2)
+            self.assertIn("unbekannter Schritt", p.stderr)
+        finally:
+            os.remove(bad)
+
+
+class ZustaendeMitAxe(Zustaende):
+    """Gleiche Zustände mit axe-core (läuft in der CI)."""
+
+    @classmethod
+    def setUpClass(cls):
+        BrowserScanBase.setUpClass.__func__(cls)
+        _, cls.data, _ = run(f"{cls.base}/browser/states/", "--states", cls.STATES)
+        if not cls.data or not cls.data["engine"].startswith("axe-core"):
+            cls.tearDownClass()
+            raise unittest.SkipTest("axe-core nicht installiert")
+
+    def test_dialogfehler_nur_im_dialog_zustand(self):
+        f = ids(self.data)
+        locs = f["axe:button-name"]["locations"]
+        self.assertTrue(all(l.startswith("[Größentabelle geöffnet]") for l in locs), locs)
+        self.assertGreater(self.state("Größentabelle geöffnet")["counts"]["kritisch"], 0)
+
+    def test_fehlermeldung_erst_nach_absenden(self):
+        locs = " ".join(ids(self.data)["axe:color-contrast"]["locations"])
+        self.assertIn("[Newsletter: Validierungsfehler]", locs)
+        self.assertIn("[Warenkorb leer]", locs)
+
+
 if __name__ == "__main__":
     unittest.main()
