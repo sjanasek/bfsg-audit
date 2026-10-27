@@ -22,7 +22,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 
-__version__ = "1.0.0"
+__version__ = "1.3.0"
 
 SEV_ORDER = {"kritisch": 0, "wichtig": 1, "empfehlung": 2, "hinweis": 3}
 SEV_ICON = {"kritisch": "🔴", "wichtig": "🟠", "empfehlung": "🟡", "hinweis": "ℹ️"}
@@ -485,11 +485,40 @@ NOT_STATIC = [
 ]
 
 
+LOC_RX = re.compile(r"^(?P<file>.+?):(?P<line>\d+)(?: \(|$)")
+
+
+def files_overview(rep: Report):
+    """Fundstellen je Datei — wo sich viele Befunde sammeln, liegt meist eine gemeinsame Ursache."""
+    files = {}
+    for f in rep.findings.values():
+        if f.severity == "hinweis":
+            continue
+        for loc in f.locations:
+            m = LOC_RX.match(loc)
+            if not m or m.group("file").startswith("http"):
+                continue
+            entry = files.setdefault(m.group("file"), {"count": 0, "rules": {}})
+            entry["count"] += 1
+            entry["rules"][f.title] = entry["rules"].get(f.title, 0) + 1
+    return sorted(({"file": k, **v} for k, v in files.items() if v["count"] >= 2),
+                  key=lambda x: (-x["count"], x["file"]))
+
+
 def render_md(target, rep: Report):
     f = rep.facts
     out = [f"# BFSG-Scan: {target}", "",
            f"Gescannt: {f['dateien'] or f['seiten']} Dateien/Seiten · scan.py {__version__}. "
            "Treffer sind Hinweise — jeden im Kontext bestätigen.", ""]
+    overview = files_overview(rep)
+    if overview:
+        out.append("## Nach Datei\n")
+        out.append("Wo sich Fundstellen sammeln, steckt meist eine gemeinsame Ursache — z. B. eine Komponente oder ein Template, "
+                   "das mehrfach verwendet wird. Dort lohnt sich der Fix am meisten.\n")
+        for e in overview[:15]:
+            rules = ", ".join(f"{t} ({n}×)" for t, n in sorted(e["rules"].items(), key=lambda x: -x[1]))
+            out.append(f"- `{e['file']}` — {e['count']} Fundstellen: {rules}")
+        out.append("")
     items = sorted(rep.findings.values(), key=lambda x: (SEV_ORDER[x.severity], x.id))
     cur = None
     if not items:
@@ -530,7 +559,7 @@ def main(argv=None):
         return 2
     conclude(rep)
     if args.json:
-        print(json.dumps({"target": t, "version": __version__, "facts": rep.facts,
+        print(json.dumps({"target": t, "version": __version__, "facts": rep.facts, "files": files_overview(rep),
                           "findings": [x.__dict__ for x in sorted(rep.findings.values(),
                                                                   key=lambda x: (SEV_ORDER[x.severity], x.id))]},
                          ensure_ascii=False, indent=2))

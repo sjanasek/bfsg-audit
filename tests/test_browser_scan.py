@@ -239,5 +239,69 @@ class ZustaendeMitAxe(Zustaende):
         self.assertIn("[Warenkorb leer]", locs)
 
 
+
+class Ursachen(BrowserScanBase):
+    """Gruppierung der Fundstellen nach Ursache (Komponente, Farbe, Muster)."""
+
+    ENGINE_ARGS = ("--no-axe",)
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        _, cls.data, _ = run(f"{cls.base}/browser/ursachen/index.html", *cls.ENGINE_ARGS)
+
+    def cause(self, kind):
+        return [c for c in self.data["causes"] if c["kind"] == kind]
+
+    def test_komponente_produktkachel(self):
+        comp = self.cause("komponente")
+        self.assertTrue(comp, self.data["causes"])
+        top = comp[0]
+        self.assertIn("product-card", top["label"])
+        self.assertEqual(top["count"], 12)  # 6 Bilder + 6 Merken-Buttons
+        self.assertEqual(len(top["rules"]), 2)
+
+    def test_farbe_mit_variable_und_vorschlag(self):
+        farbe = self.cause("farbe")
+        self.assertEqual(len(farbe), 1)
+        self.assertEqual(farbe[0]["count"], 6)
+        self.assertIn("#a0a0a0", farbe[0]["label"])
+        self.assertIn("--color-muted", farbe[0]["colorVars"])
+        self.assertRegex(farbe[0]["suggestion"], r"^#[0-9a-f]{6} ergibt [4-9]")
+
+    def test_reihenfolge_nach_wirkung(self):
+        counts = [c["count"] for c in self.data["causes"]]
+        self.assertEqual(counts, sorted(counts, reverse=True))
+
+    def test_bericht_abschnitt(self):
+        p = subprocess.run(["node", SCRIPT, f"{self.base}/browser/ursachen/index.html", "--max-pages", "0", *self.ENGINE_ARGS],
+                           capture_output=True, text=True, timeout=180)
+        self.assertIn("## Ursachen", p.stdout)
+        self.assertIn("behebt 12 Fundstelle(n)", p.stdout)
+        self.assertNotIn("Aufwand", p.stdout)
+
+
+class UrsachenMitAxe(Ursachen):
+    ENGINE_ARGS = ()
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        if not cls.data or not cls.data["engine"].startswith("axe-core"):
+            cls.tearDownClass()
+            raise unittest.SkipTest("axe-core nicht installiert")
+
+    def test_komponente_produktkachel(self):
+        top = self.cause("komponente")[0]
+        self.assertIn("product-card", top["label"])
+        self.assertGreaterEqual(top["count"], 12)
+
+    def test_bericht_abschnitt(self):
+        p = subprocess.run(["node", SCRIPT, f"{self.base}/browser/ursachen/index.html", "--max-pages", "0"],
+                           capture_output=True, text=True, timeout=180)
+        self.assertIn("## Ursachen", p.stdout)
+        self.assertNotIn("Aufwand", p.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

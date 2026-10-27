@@ -67,6 +67,16 @@ class ReparierterShop(unittest.TestCase):
         self.assertEqual(schwer, [], schwer)
 
 
+class NachDatei(unittest.TestCase):
+    def test_dateien_mit_mehreren_fundstellen(self):
+        out = subprocess.run([sys.executable, SCAN, os.path.join(FIX, "frameworks"), "--json"],
+                             capture_output=True, text=True, check=True).stdout
+        files = {e["file"]: e for e in json.loads(out)["files"]}
+        self.assertIn("Cart.tsx", files)
+        self.assertGreaterEqual(files["Cart.tsx"]["count"], 4)
+        self.assertNotIn("Indizien für Online-Vertragsschluss (Shop/Buchung)", files["Cart.tsx"]["rules"])
+
+
 class Frameworks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

@@ -77,6 +77,8 @@ node skills/bfsg-audit/scripts/browser-scan.mjs http://localhost:3000 --max-page
 
 Mit `--fail-on kritisch` eignet es sich als automatischer Check bei jedem Deployment.
 
+**Ursachen statt Symptome (neu in 1.3):** Der Bericht fasst Fundstellen mit gemeinsamer Ursache zusammen, z. B. „Komponente `li.product-card` — behebt 80 Fundstellen“ oder „Textfarbe #a0a0a0 (Variable `--color-muted`) — behebt 12 Fundstellen, Vorschlag #757575“. Sortiert nach Wirkung, ohne geschätzte Aufwände. Der statische Scan zeigt, in welchen Dateien sich Fundstellen sammeln.
+
 **Zustände durchklicken (neu in 1.2):** Mit `--states zustaende.json` prüft der Scan nicht nur die geladene Seite, sondern auch geöffnete Dialoge, Validierungsfehler oder den gefüllten Warenkorb. Der Bericht zeigt in einer Tabelle, welche Zustände geprüft, fehlgeschlagen oder noch manuell offen sind. Vorlage: `skills/bfsg-audit/assets/zustaende-beispiel.json`. Details in der [Anleitung](docs/anleitung.md#8-die-browser-prüfung).
 
 ## Was drin ist

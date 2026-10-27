@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SEV_ORDER = { kritisch: 0, wichtig: 1, empfehlung: 2, hinweis: 3 };
 const SEV_ICON = { kritisch: '🔴', wichtig: '🟠', empfehlung: '🟡', hinweis: 'ℹ️' };
@@ -245,7 +245,7 @@ function builtinAudit() {
   };
   const html = el => el.outerHTML.replace(/\s+/g, ' ').slice(0, 140);
   const visible = el => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return cs.visibility !== 'hidden' && cs.display !== 'none' && r.width > 0 && r.height > 0; };
-  const add = (rule, el, extra) => out.push({ rule, target: el ? sel(el) : '', html: el ? html(el) : '', extra: extra || '' });
+  const add = (rule, el, extra, data) => out.push({ rule, target: el ? sel(el) : '', html: el ? html(el) : '', extra: extra || '', data: data || null });
   const accName = el => {
     const lb = el.getAttribute('aria-labelledby');
     if (lb) { const t = lb.split(/\s+/).map(id => document.getElementById(id)?.textContent || '').join(' ').trim(); if (t) return t; }
@@ -286,9 +286,48 @@ function builtinAudit() {
     const ratio = (Math.max(lum(fg), lum(bg)) + 0.05) / (Math.min(lum(fg), lum(bg)) + 0.05);
     const size = parseFloat(cs.fontSize); const bold = +cs.fontWeight >= 700;
     const pt = size * 0.75; const need = (pt >= 18 || (bold && pt >= 14)) ? 3 : 4.5;
-    if (ratio + 1e-9 < need) add('color-contrast', el, `${ratio.toFixed(2)}:1, nötig ${need}:1 (${cs.color} auf rgb(${Math.round(bg.r)},${Math.round(bg.g)},${Math.round(bg.b)}), ${size}px)`);
+    const bgStr = `rgb(${Math.round(bg.r)}, ${Math.round(bg.g)}, ${Math.round(bg.b)})`;
+    if (ratio + 1e-9 < need) add('color-contrast', el, `${ratio.toFixed(2)}:1, nötig ${need}:1 (${cs.color} auf ${bgStr}, ${size}px)`, { fg: cs.color, bg: bgStr, need });
   }
   return { violations: out, incomplete: inc };
+}
+
+// Ordnet Fundstellen einer Ursache zu: wiederholte Komponente (nächstes Elternelement,
+// dessen Klassen mehrfach auf der Seite vorkommen), Element-Muster und CSS-Farbvariablen.
+function describeTargets(items) {
+  const usable = c => !/^(css|sc|jsx|svelte|astro|emotion|chakra|tw)-/.test(c) && !/[0-9a-f]{6,}/i.test(c)
+    && !/^(is|has)-(active|open|selected|focus|hover|visible)$/.test(c) && !/^(active|open|selected|show|visible)$/.test(c);
+  const strip = c => c.replace(/(_{1,2}|-)[a-zA-Z0-9]{5}$/, m => (/\d/.test(m) ? '' : m));
+  const classes = el => [...(el.classList || [])].filter(usable).map(strip).filter(Boolean).slice(0, 3).sort();
+  const sig = el => { const c = classes(el); return c.length ? { show: `${el.tagName.toLowerCase()}.${c.join('.')}`, css: `${el.tagName.toLowerCase()}${c.map(x => '.' + CSS.escape(x)).join('')}` } : null; };
+  const howMany = q => { try { return document.querySelectorAll(q).length; } catch { return 0; } };
+  const norm = v => { const d = document.createElement('span'); d.style.color = v; if (!d.style.color) return null; document.body.appendChild(d); const c = getComputedStyle(d).color; d.remove(); return c; };
+  let vars = null;
+  const collectVars = () => {
+    const out = [];
+    for (const sh of document.styleSheets) {
+      let rules; try { rules = sh.cssRules; } catch { continue; }
+      const walk = rs => { for (const r of rs) { if (r.style) for (const prop of r.style) if (prop.startsWith('--')) out.push([prop, r.style.getPropertyValue(prop).trim()]); if (r.cssRules) walk(r.cssRules); } };
+      walk(rules);
+    }
+    return out.map(([n, v]) => [n, norm(v)]).filter(([, v]) => v);
+  };
+  return items.map(it => {
+    let el = null; try { el = document.querySelector(it.selector); } catch { /* ungültiger Selektor */ }
+    if (!el) return { component: null, element: null, colorVars: [] };
+    let component = null;
+    for (let a = el.parentElement; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
+      const s = sig(a); if (s && howMany(s.css) >= 2) { component = s.show; break; }
+    }
+    let colorVars = [];
+    if (it.fg) {
+      if (!vars) vars = collectVars();
+      const f = norm(it.fg);
+      colorVars = [...new Set(vars.filter(([, v]) => v === f).map(([n]) => n))].slice(0, 3);
+    }
+    const own = sig(el);
+    return { component, element: own ? own.show : el.tagName.toLowerCase(), colorVars };
+  });
 }
 
 // Eingabefelder, deren einzige Beschriftung der Platzhalter ist (axe wertet ihn als Namen).
@@ -392,6 +431,9 @@ async function auditCurrent(page, label, opts, axeSrc, axeLocale, report) {
   const where = `[${label}] ${finalUrl}`;
   const before = {};
   for (const f of Object.values(report.findings)) before[f.id] = f.locations.length;
+  const causeItems = [];
+  let path = finalUrl; try { const u = new URL(finalUrl); path = u.pathname + u.search; } catch { /* keine URL */ }
+  const place = `${label} (${path})`;
 
   if (axeSrc) {
     await page.addScriptTag({ content: axeSrc });
@@ -399,13 +441,20 @@ async function auditCurrent(page, label, opts, axeSrc, axeLocale, report) {
       if (locale) window.axe.configure({ locale });
       const res = await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] }, resultTypes: ['violations', 'incomplete'] });
       const slim = v => ({ id: v.id, impact: v.impact, tags: v.tags, help: v.help, helpUrl: v.helpUrl, description: v.description,
-        nodes: v.nodes.map(n => ({ target: n.target.join(' '), html: n.html.replace(/\s+/g, ' ').slice(0, 140), summary: (n.failureSummary || '').replace(/\s+/g, ' ').slice(0, 220) })) });
+        nodes: v.nodes.map(n => {
+          const cc = [...(n.any || []), ...(n.all || [])].find(c => c.id === 'color-contrast' || c.id === 'color-contrast-enhanced');
+          return { target: n.target.join(' '), html: n.html.replace(/\s+/g, ' ').slice(0, 140), summary: (n.failureSummary || '').replace(/\s+/g, ' ').slice(0, 220),
+            color: cc && cc.data ? { fg: cc.data.fgColor, bg: cc.data.bgColor, need: parseFloat(cc.data.expectedContrastRatio) || 4.5 } : null };
+        }) });
       return { violations: res.violations.map(slim), incomplete: res.incomplete.map(slim), version: window.axe.version };
     }, axeLocale);
     report.engine = `axe-core ${r.version}`;
     for (const v of r.violations) {
       const f = findingFor(report, `axe:${v.id}`, axeSeverity(v), v.help, wcagFromTags(v.tags), `${v.description} Mehr: ${v.helpUrl}`);
-      v.nodes.forEach(n => f.locations.push(`${where} → ${n.target}  ${n.html}${n.summary ? `  — ${n.summary}` : ''}`));
+      v.nodes.forEach(n => {
+        f.locations.push(`${where} → ${n.target}  ${n.html}${n.summary ? `  — ${n.summary}` : ''}`);
+        causeItems.push({ ruleId: f.id, title: f.title, where: place, selector: n.target, html: n.html, ...(n.color || {}) });
+      });
     }
     for (const v of r.incomplete) {
       const m = report.manual[v.id] || (report.manual[v.id] = { help: v.help, wcag: wcagFromTags(v.tags), count: 0, examples: [] });
@@ -418,6 +467,7 @@ async function auditCurrent(page, label, opts, axeSrc, axeLocale, report) {
       const [sev, title, wcag, hint] = BUILTIN_META[v.rule];
       const f = findingFor(report, v.rule, sev, title, wcag, hint);
       f.locations.push(`${where} → ${v.target}  ${v.html}${v.extra ? `  — ${v.extra}` : ''}`);
+      causeItems.push({ ruleId: f.id, title: f.title, where: place, selector: v.target, html: v.html, ...(v.data || {}) });
     }
     if (r.incomplete.length) {
       const m = report.manual['color-contrast'] || (report.manual['color-contrast'] = { help: 'Kontrast über Hintergrundbildern, Verläufen oder Transparenz', wcag: '1.4.3 (AA)', count: 0, examples: [] });
@@ -434,6 +484,11 @@ async function auditCurrent(page, label, opts, axeSrc, axeLocale, report) {
     const [sev, title, wcag, hint] = KEYBOARD_META[k.rule];
     const f = findingFor(report, k.rule, sev, title, wcag, hint);
     f.locations.push(`${where}${k.html ? ` → ${k.html}` : ''}`);
+  }
+
+  if (causeItems.length) {
+    const info = await page.evaluate(describeTargets, causeItems.slice(0, 600).map(i => ({ selector: i.selector, fg: i.fg || null })));
+    causeItems.slice(0, 600).forEach((it, i) => addToCause(report, it, info[i]));
   }
 
   const counts = { kritisch: 0, wichtig: 0, empfehlung: 0, hinweis: 0 };
@@ -476,6 +531,65 @@ async function auditState(context, st, opts, axeSrc, axeLocale, report) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Ursachen
+// ---------------------------------------------------------------------------
+
+function parseColor(c) {
+  if (!c) return null;
+  let m = String(c).trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (m) { let h = m[1]; if (h.length === 3) h = h.split('').map(x => x + x).join(''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); }
+  m = String(c).match(/rgba?\(([^)]+)\)/);
+  if (m) return m[1].split(/[ ,/]+/).filter(Boolean).slice(0, 3).map(Number);
+  return null;
+}
+const toHex = rgb => '#' + rgb.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+function luminance([r, g, b]) { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); }
+function contrast(a, b) { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); }
+
+// Nächste Textfarbe in gleicher Richtung (dunkler auf hellem, heller auf dunklem Grund), die den Mindestkontrast erreicht.
+function suggestColor(fg, bg, need) {
+  const f = parseColor(fg), b = parseColor(bg);
+  if (!f || !b) return null;
+  const target = luminance(b) > 0.4 ? [0, 0, 0] : [255, 255, 255];
+  for (let t = 0; t <= 1.0001; t += 0.01) {
+    const c = f.map((v, i) => v + (target[i] - v) * t);
+    const r = contrast(c.map(Math.round), b);
+    if (r >= need + 0.05) return { color: toHex(c), ratio: r };
+  }
+  return null;
+}
+
+function addToCause(report, it, info) {
+  report.causes = report.causes || {};
+  let key, kind, label;
+  if (/color-contrast/.test(it.ruleId) && it.fg && it.bg) {
+    const fg = toHex(parseColor(it.fg) || [0, 0, 0]), bg = toHex(parseColor(it.bg) || [255, 255, 255]);
+    key = `farbe|${fg}|${bg}`; kind = 'farbe'; label = `Textfarbe ${fg} auf ${bg}`;
+  } else if (info && info.component) {
+    key = `komponente|${info.component}`; kind = 'komponente'; label = `Komponente \`${info.component}\``;
+  } else {
+    const el = (info && info.element) || '?';
+    key = `muster|${it.ruleId}|${el}`; kind = 'muster'; label = `Element-Muster \`${el}\``;
+  }
+  const c = report.causes[key] || (report.causes[key] = { kind, label, count: 0, rules: {}, places: [], example: '', colorVars: [], suggestion: null });
+  c.count++;
+  c.rules[it.title] = (c.rules[it.title] || 0) + 1;
+  if (!c.places.includes(it.where)) c.places.push(it.where);
+  if (!c.example) c.example = `${it.selector}  ${it.html || ''}`.trim();
+  if (kind === 'farbe') {
+    for (const v of (info && info.colorVars) || []) if (!c.colorVars.includes(v)) c.colorVars.push(v);
+    if (!c.suggestion) {
+      const sgg = suggestColor(it.fg, it.bg, it.need || 4.5);
+      if (sgg) c.suggestion = `${sgg.color} ergibt ${sgg.ratio.toFixed(1)}:1 (nötig ${it.need || 4.5}:1)`;
+    }
+  }
+}
+
+function sortedCauses(report) {
+  return Object.values(report.causes || {}).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
 function findingFor(report, id, severity, title, wcag, hint) {
   return report.findings[id] || (report.findings[id] = { id, severity, title, wcag, hint, locations: [] });
 }
@@ -512,6 +626,26 @@ function renderMd(report) {
   } else {
     out.push('Geprüft wurde nur der Zustand direkt nach dem Laden. Diese typischen Zustände sind offen — mit `--states` lassen sie sich durchklicken:');
     DEFAULT_OPEN_STATES.forEach(o => out.push(`- ${o}`));
+  }
+
+  // Ursachen: was mehrfach auftritt, hat meist eine gemeinsame Ursache
+  const total = Object.values(report.findings).reduce((n, f) => n + f.locations.length, 0);
+  const causes = sortedCauses(report).filter(c => c.count >= 2);
+  if (causes.length) {
+    const covered = causes.reduce((n, c) => n + c.count, 0);
+    out.push('', '## Ursachen', '', `${causes.length} Ursache(n) erklären ${covered} von ${total} Fundstellen. Übrige Fundstellen sind Einzelfälle (siehe Befunde unten).`, '');
+    causes.forEach((c, i) => {
+      out.push(`### ${i + 1}. ${c.label} — behebt ${c.count} Fundstelle(n)`);
+      out.push(`- **Betrifft:** ${Object.entries(c.rules).map(([t, n]) => `${t} (${n}×)`).join(', ')}`);
+      out.push(`- **Vorkommen:** ${c.places.length} ${c.places.length === 1 ? 'Seite/Zustand' : 'Seiten/Zustände'}: ${c.places.slice(0, 5).join(', ')}${c.places.length > 5 ? ' …' : ''}`);
+      if (c.kind === 'farbe') {
+        out.push(`- **Farbvariable:** ${c.colorVars.length ? c.colorVars.map(v => `\`${v}\``).join(', ') : 'keine gefunden — Farbe direkt im CSS suchen'}`);
+        if (c.suggestion) out.push(`- **Vorschlag:** ${c.suggestion} — optisch prüfen`);
+      } else if (c.kind === 'komponente') {
+        out.push('- **Wo im Code:** Datei der Komponente über den Klassennamen suchen; ein Fix dort wirkt auf alle Vorkommen');
+      }
+      out.push(`- **Beispiel:** \`${c.example.replace(/`/g, "'").slice(0, 200)}\``, '');
+    });
   }
 
   const items = Object.values(report.findings).sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity] || a.id.localeCompare(b.id));
@@ -580,7 +714,7 @@ async function main() {
     bypassCSP: true, // erlaubt das Einspielen von axe-core auch bei strenger Content-Security-Policy
     locale: 'de-DE', viewport, isMobile: opts.mobile, hasTouch: opts.mobile,
   });
-  const report = { version: VERSION, engine: '', viewport: opts.mobile ? 'mobil 390×844' : 'Desktop 1280×900', pages: [], errors: [], findings: {}, manual: {}, states: [], usedStatesFile: !!states };
+  const report = { version: VERSION, engine: '', viewport: opts.mobile ? 'mobil 390×844' : 'Desktop 1280×900', pages: [], errors: [], findings: {}, manual: {}, states: [], usedStatesFile: !!states, causes: {} };
 
   // Mit Zustandsdatei: die angegebenen URLs dienen als Basis, geprüft werden die Zustände
   const queue = states ? [] : [...opts.urls];
@@ -613,7 +747,7 @@ async function main() {
 
   if (opts.json) {
     const findings = Object.values(report.findings).sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity] || a.id.localeCompare(b.id));
-    console.log(JSON.stringify({ ...report, findings }, null, 2));
+    console.log(JSON.stringify({ ...report, findings, causes: sortedCauses(report) }, null, 2));
   } else {
     console.log(renderMd(report));
   }

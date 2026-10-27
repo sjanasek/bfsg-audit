@@ -74,6 +74,16 @@ Jeder Befund nennt:
 - **Wen es betrifft:** z. B. Screenreader-Nutzer:innen, Tastaturnutzer:innen
 - **Fix:** konkreter Code
 
+**Ursachen statt Symptome.** Am Anfang des Berichts stehen die Ursachen, die die meisten Fundstellen erklären. Ein Beispiel: 40 Bilder ohne Alternativtext und 40 Merken-Buttons ohne Namen auf einer Kategorieseite sind keine 80 Probleme, sondern eine Produktkachel, die 40-mal vorkommt. 12 Kontrastfehler gehen oft auf eine einzige Farbvariable zurück. Der Bericht zeigt dann:
+
+> **1. Komponente `li.product-card` — behebt 80 Fundstellen**
+> Betrifft: Bilder ohne Alternativtext (40×), Buttons ohne zugänglichen Namen (40×)
+>
+> **2. Textfarbe #a0a0a0 auf #ffffff — behebt 12 Fundstellen**
+> Farbvariable: `--color-muted` · Vorschlag: #757575 ergibt 4,6:1
+
+Sortiert wird nach Wirkung: Die Ursache, die am meisten behebt, steht oben. Eine Aufwandsschätzung gibt es bewusst nicht, weil sie immer subjektiv wäre. Du siehst stattdessen, wie viele Fundstellen, Seiten und Zustände betroffen sind. Der statische Scan zeigt zusätzlich, in welchen Dateien sich Fundstellen sammeln („Nach Datei“).
+
 ## 5. Fixes umsetzen lassen
 
 Am Ende des Berichts bietet Claude an, die Fixes direkt umzusetzen. Sagst du Ja, ändert Claude nur die Stellen aus dem Bericht, zeigt jede Änderung und lässt den Scan danach erneut laufen.

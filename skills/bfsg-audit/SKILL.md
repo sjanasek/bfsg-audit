@@ -92,6 +92,9 @@ Stand: [Datum] · Maßstab: WCAG 2.1 AA (De-facto-Referenz EN 301 549 V3.2.1), W
 ## Ergebnis in einem Satz
 [z. B. "Checkout per Tastatur nicht abschließbar, 23 Bilder ohne Alternativtext, Barrierefreiheitsinformationen fehlen."]
 
+## Ursachen
+[Die Ursachen, die die meisten Fundstellen erklären — je Ursache: wo sie im Code sitzt (Datei der Komponente, Farbvariable), wie viele Fundstellen sie behebt, auf welchen Seiten/in welchen Zuständen, Fix. Danach: „Übrige N Fundstellen sind Einzelfälle.“]
+
 ## 🔴 Kritisch
 ### [Kurztitel] — WCAG [SC-Nummer + Name]
 - **Wo:** `pfad/datei:zeile` (bzw. URL + Element)
@@ -112,7 +115,12 @@ Stand: [Datum] · Maßstab: WCAG 2.1 AA (De-facto-Referenz EN 301 549 V3.2.1), W
 ## ✅ Geprüft und in Ordnung
 ```
 
-Gruppiere gleichartige Treffer (23× `img` ohne `alt` = ein Befund mit Fundstellenliste, nicht 23 Befunde). Zeig den Fix einmal exemplarisch und nenne die übrigen Stellen.
+**Ursachen statt Symptome.** Viele Fundstellen haben eine gemeinsame Ursache: eine Komponente, die 40-mal auf der Seite steht, oder eine Farbvariable, die überall verwendet wird. Der Browser-Scan gruppiert das im Abschnitt „Ursachen“ (wiederholte Komponente, Textfarbe mit CSS-Variable und Farbvorschlag, gleiches Element-Muster), der statische Scan im Abschnitt „Nach Datei“. Stell die Ursachen im Bericht an den Anfang, sortiert danach, wie viele Fundstellen sie beheben:
+- Bestätige jede Ursache im Code: Such die Komponente über ihren Klassennamen und nenne Datei und Zeile. Gehören Fundstellen doch nicht zusammen, trenne sie.
+- Bei Farben: nenne die Variable bzw. die CSS-Regel und den Farbvorschlag aus dem Scan, mit dem Hinweis, ihn optisch zu prüfen (Markenfarben).
+- **Keine Aufwandsschätzungen** (Stunden, „klein/groß“). Nenne nur Zählbares: Fundstellen, Dateien, Seiten bzw. Zustände.
+
+Gruppiere darunter gleichartige Treffer (23× `img` ohne `alt` = ein Befund mit Fundstellenliste, nicht 23 Befunde). Zeig den Fix einmal exemplarisch und nenne die übrigen Stellen.
 
 ### 6. Barrierefreiheitsinformationen (Anlage 3 BFSG)
 

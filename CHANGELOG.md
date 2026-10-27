@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 — 2026-10-28
+
+- Neu: Ursachen statt Symptome
+  - Browser-Scan: Abschnitt „Ursachen“ fasst Fundstellen zusammen — wiederholte Komponente (z. B. Produktkachel), Textfarbe mit CSS-Variable und Farbvorschlag für ausreichenden Kontrast, gleiches Element-Muster; sortiert nach Zahl der behobenen Fundstellen; im JSON als `causes`
+  - Statischer Scan: Abschnitt „Nach Datei“ zeigt, wo sich Fundstellen sammeln; im JSON als `files`
+  - bewusst ohne Aufwandsschätzung — nur Zählbares (Fundstellen, Seiten, Zustände)
+
 ## 1.2.0 — 2026-10-27
 
 - Neu: Zustände im Browser-Scan (`--states datei.json`) — Dialoge öffnen, Formulare mit Fehlern auslösen, Warenkorb füllen und jeden Zustand einzeln prüfen
