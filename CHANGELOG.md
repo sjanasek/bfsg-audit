@@ -1,5 +1,13 @@
 # Changelog
 
+## Unveröffentlicht
+
+- Neu: Formulare mit falschen Eingaben (`--forms`, Issue #2)
+  - erkennt prüfbare Formulare (ohne Suchfelder, Warenkorb-Formulare und versteckte Formulare) und plant falsche Eingaben aus `required`, `type`, `pattern`, `minlength`, `min`/`max`, `autocomplete` und der Beschriftung
+  - Abschicken-Schutz: Navigation, POST und fetch/XHR sind beim Absenden gesperrt, Service Worker blockiert
+  - Ergebnis je Formular: vom Browser verhindert, per Skript verhindert, alert(), würde abgeschickt, keine Reaktion; im JSON als `forms`
+  - gleiche Formulare auf mehreren Seiten werden einmal geprüft
+
 ## 1.3.0 — 2026-10-28
 
 - Neu: Ursachen statt Symptome

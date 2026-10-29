@@ -158,6 +158,7 @@ node skills/bfsg-audit/scripts/browser-scan.mjs https://example.de --mobile --js
 | `--json` | Ausgabe als JSON |
 | `--fail-on kritisch` | Exit-Code 1, wenn kritische Befunde vorliegen (auch `wichtig`), z. B. für automatische Prüfungen bei jedem Deployment |
 | `--states DATEI` | Zustände aus einer JSON-Datei durchklicken und einzeln prüfen (siehe unten) |
+| `--forms` | Formulare absichtlich falsch ausfüllen und absenden, ohne dass etwas beim Server ankommt (siehe unten) |
 | `--no-axe` | nur die eingebauten Regeln verwenden |
 
 **Gut zu wissen:**
@@ -205,6 +206,30 @@ node skills/bfsg-audit/scripts/browser-scan.mjs --states zustaende.json
 Selektoren funktionieren wie in Playwright: `#id`, `.klasse`, `[role=dialog]` oder `text=Größentabelle`.
 
 Im Bericht steht dann die Tabelle **„Geprüfte Zustände“**: Für jeden Zustand siehst du, ob er geprüft wurde, ob ein Schritt fehlgeschlagen ist (mit Grund) oder ob er bewusst manuell offen ist, und wie viele Befunde dort gefunden wurden. Jede Fundstelle nennt ihren Zustand, z. B. `[Größentabelle geöffnet]`. Darunter listet der Bericht alle Zustände, die nicht geprüft wurden.
+
+### Formulare mit falschen Eingaben
+
+Ob ein Fehler auch für Menschen mit Screenreader erkennbar ist, sieht man erst, wenn er auftritt. Mit `--forms` löst der Scan Fehler absichtlich aus:
+
+```bash
+node skills/bfsg-audit/scripts/browser-scan.mjs https://example.de --forms
+```
+
+Das Formular verrät selbst, was es erwartet. Pflichtfelder (`required`) bleiben leer, E-Mail-Felder bekommen „abc“, Felder mit `pattern` einen unpassenden Wert, PLZ-Felder „123“ und Felder mit `minlength` einen zu kurzen Text. Dann klickt der Scan auf Absenden.
+
+**Es wird nichts abgeschickt.** Während des Absendens sperrt der Scan jede Navigation, jede POST-Anfrage und alle Hintergrund-Anfragen (fetch/XHR). Deshalb ist `--forms` auch auf Live-Seiten unbedenklich.
+
+Im Bericht steht danach je Formular, mit welchen falschen Eingaben es getestet wurde und wie die Seite reagiert hat:
+
+| Ergebnis | Bedeutung |
+|---|---|
+| 🛑 vom Browser verhindert | Die eingebaute Prüfung des Browsers zeigt eine Fehlerblase |
+| 🛑 per Skript verhindert | Ein Skript der Seite hat das Absenden gestoppt und meist eine Meldung eingeblendet |
+| 🛑 Fehler als alert()-Dialog | Die Seite meldet den Fehler in einem Popup-Fenster |
+| ⚠️ würde abgeschickt | Im Browser wird nichts geprüft, die Fehler kommen erst vom Server. Das bitte auf einer Testumgebung prüfen |
+| ❔ keine erkennbare Reaktion | Nichts passiert, bitte von Hand prüfen |
+
+Suchfelder und Formulare ohne Texteingabe (z. B. „In den Warenkorb“) werden übersprungen. Ein Formular, das auf mehreren Seiten vorkommt, etwa der Newsletter im Footer, wird nur einmal geprüft.
 
 **Bitte beachten:**
 - Auf einer Live-Seite nichts absenden, bestellen oder buchen. Abläufe mit Folgen nur auf dem eigenen Rechner (`localhost`) oder einer Testumgebung prüfen.

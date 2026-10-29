@@ -10,6 +10,7 @@
 // Aufruf:
 //   node browser-scan.mjs <url> [weitere URLs] [--max-pages N] [--json]
 //                         [--mobile] [--fail-on kritisch|wichtig] [--no-axe]
+//                         [--states datei.json] [--forms]
 //
 // Voraussetzungen: Node 18+, Playwright mit Chromium, optional axe-core.
 //   npm install playwright axe-core
@@ -36,7 +37,7 @@ const MAX_LOCS = 8;
 // ---------------------------------------------------------------------------
 
 function parseArgs(argv) {
-  const o = { urls: [], maxPages: null, json: false, mobile: false, failOn: null, noAxe: false, timeout: 30000, states: null };
+  const o = { urls: [], maxPages: null, json: false, mobile: false, failOn: null, noAxe: false, timeout: 30000, states: null, forms: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--json') o.json = true;
@@ -46,6 +47,7 @@ function parseArgs(argv) {
     else if (a === '--timeout') o.timeout = Math.max(5000, parseInt(argv[++i], 10) || 30000);
     else if (a === '--fail-on') o.failOn = argv[++i];
     else if (a === '--states') o.states = argv[++i];
+    else if (a === '--forms') o.forms = true;
     else if (a === '-h' || a === '--help') o.help = true;
     else if (a.startsWith('--')) throw new Error(`Unbekannte Option: ${a}`);
     else o.urls.push(/^https?:\/\//.test(a) ? a : `https://${a}`);
@@ -65,6 +67,9 @@ const HELP = `BFSG-Audit Browser-Scan ${VERSION}
 Optionen:
   --states DATEI     Zustände aus einer JSON-Datei durchklicken und einzeln prüfen
                      (z. B. leerer Warenkorb, Validierungsfehler, geöffneter Dialog)
+  --forms            Formulare mit absichtlich falschen Eingaben absenden und festhalten,
+                     wie die Seite reagiert. Nichts wird an den Server gesendet:
+                     Navigation, POST und fetch/XHR sind dabei gesperrt.
   --max-pages N      zusätzlich bis zu N Unterseiten derselben Domain prüfen
                      (Standard 5, mit --states 0)
   --mobile           mit Smartphone-Ansicht (390 × 844) prüfen
@@ -422,6 +427,7 @@ async function auditPage(context, url, opts, axeSrc, axeLocale, report) {
 
   const links = await page.evaluate(() => [...document.querySelectorAll('a[href]')].map(a => ({ href: a.href, text: (a.textContent || '').trim() })));
   await page.close();
+  if (opts.forms && status === 'ok') await testForms(context, finalUrl, [], 'Nach dem Laden', opts, report);
   return links;
 }
 
@@ -529,6 +535,211 @@ async function auditState(context, st, opts, axeSrc, axeLocale, report) {
   } finally {
     await page.close();
   }
+  if (opts.forms && entry.status === 'geprüft') await testForms(context, st.url, st.steps, st.name, opts, report);
+}
+
+// ---------------------------------------------------------------------------
+// Formulare: absichtlich falsch ausfüllen und Absenden auslösen (--forms)
+// ---------------------------------------------------------------------------
+//
+// Sicherheit: Während des Absendens blockiert eine Netzwerk-Sperre jede Navigation,
+// jede Anfrage außer GET sowie fetch/XHR. Es erreicht also nichts den Server.
+// Wollte das Formular wirklich etwas senden, wird das nur festgehalten.
+
+const MAX_FORMS_PER_STATE = 5;
+
+// Im Browser: Formulare finden, die sich sinnvoll prüfen lassen, und falsche Eingaben planen.
+function findForms() {
+  const visible = el => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return cs.visibility !== 'hidden' && cs.display !== 'none' && r.width > 0 && r.height > 0; };
+  const path = el => {
+    const parts = [];
+    for (let e = el; e && e.nodeType === 1 && e !== document.documentElement; e = e.parentElement) {
+      if (e.id) { parts.unshift(`#${CSS.escape(e.id)}`); return parts.join(' > '); }
+      const p = e.parentElement; let s = e.tagName.toLowerCase();
+      if (p) { const same = [...p.children].filter(c => c.tagName === e.tagName); if (same.length > 1) s += `:nth-of-type(${same.indexOf(e) + 1})`; }
+      parts.unshift(s);
+    }
+    return parts.join(' > ');
+  };
+  const text = el => (el?.textContent || '').replace(/\s+/g, ' ').trim();
+  const fieldLabel = f => {
+    const lb = f.getAttribute('aria-labelledby');
+    if (lb) { const t = lb.split(/\s+/).map(id => text(document.getElementById(id))).join(' ').trim(); if (t) return t; }
+    if (f.getAttribute('aria-label')) return f.getAttribute('aria-label').trim();
+    if (f.labels && f.labels.length) { const t = text(f.labels[0]).replace(/\s*\*$/, ''); if (t) return t; }
+    return (f.getAttribute('placeholder') || f.name || f.id || f.type || 'Feld').trim();
+  };
+  const formName = (form, i) => {
+    if (form.getAttribute('aria-label')) return form.getAttribute('aria-label').trim();
+    const lb = form.getAttribute('aria-labelledby'); if (lb && text(document.getElementById(lb))) return text(document.getElementById(lb));
+    const h = form.querySelector('legend,h1,h2,h3,h4,h5,h6'); if (h && text(h)) return text(h).slice(0, 60);
+    let prev = form.previousElementSibling; for (let k = 0; prev && k < 3; k++, prev = prev.previousElementSibling) if (/^H[1-6]$/.test(prev.tagName) && text(prev)) return text(prev).slice(0, 60);
+    if (form.id || form.name) return `Formular #${form.id || form.name}`;
+    const a = form.getAttribute('action'); if (a) return `Formular → ${a}`;
+    return `Formular ${i + 1}`;
+  };
+  const SKIP_TYPES = ['hidden', 'submit', 'button', 'reset', 'image', 'file', 'search', 'color', 'range'];
+  const TEXTLIKE = ['text', 'email', 'tel', 'url', 'password', 'date', 'datetime-local', 'month', 'week', 'time', ''];
+  const badFor = (pattern) => {
+    let rx; try { rx = new RegExp(`^(?:${pattern})$`, 'v'); } catch { try { rx = new RegExp(`^(?:${pattern})$`, 'u'); } catch { return null; } }
+    return ['abc', '1', 'a1', '!!', '12', 'x'].find(v => !rx.test(v)) ?? null;
+  };
+  const plan = f => {
+    const tag = f.tagName.toLowerCase(); const t = (f.type || '').toLowerCase();
+    const req = f.required || f.getAttribute('aria-required') === 'true';
+    const ac = (f.getAttribute('autocomplete') || '').toLowerCase();
+    const hint = `${f.name} ${f.id} ${fieldLabel(f)}`.toLowerCase();
+    if (tag === 'select') return req ? { action: 'select-empty', value: '', why: 'Pflichtauswahl leer' } : null;
+    if (t === 'checkbox' || t === 'radio') return req ? { action: 'uncheck', value: '', why: 'Pflichtfeld nicht angekreuzt' } : null;
+    if (t === 'email' || /\bemail\b/.test(ac) || (TEXTLIKE.includes(t) && /\be-?mail\b/.test(hint))) return { action: 'fill', value: 'abc', why: 'E-Mail ohne @' };
+    if (t === 'url') return { action: 'fill', value: 'abc', why: 'keine gültige Adresse' };
+    if (f.getAttribute('pattern')) { const v = badFor(f.getAttribute('pattern')); if (v !== null) return { action: 'fill', value: v, why: 'entspricht nicht dem verlangten Format' }; }
+    if (/postal-code/.test(ac) || /\b(plz|zip|postleitzahl|postcode)\b/.test(hint)) return { action: 'fill', value: '123', why: 'PLZ zu kurz' };
+    if (f.minLength > 1) return { action: 'fill', value: 'a', why: `kürzer als ${f.minLength} Zeichen` };
+    if (t === 'number' && (f.min !== '' || f.max !== '')) return { action: 'fill', value: f.min !== '' ? String(+f.min - 1) : String(+f.max + 1), why: 'außerhalb des erlaubten Bereichs' };
+    if (t === 'tel' || /^tel/.test(ac)) return { action: 'fill', value: 'abc', why: 'keine Telefonnummer' };
+    if (req) return { action: 'fill', value: '', why: 'Pflichtfeld leer' };
+    return null;
+  };
+  const out = [];
+  [...document.forms].forEach((form, i) => {
+    if (!visible(form) || form.getAttribute('role') === 'search' || form.closest('[role=search],search')) return;
+    const fields = [...form.elements].filter(f => /^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName) && !f.disabled && !SKIP_TYPES.includes((f.type || '').toLowerCase()) && visible(f));
+    // Nur Formulare mit Texteingaben (schließt z. B. "In den Warenkorb" mit Mengenfeld aus)
+    if (!fields.some(f => f.tagName === 'TEXTAREA' || (f.tagName === 'INPUT' && TEXTLIKE.includes((f.getAttribute('type') || '').toLowerCase())))) return;
+    const buttons = [...form.querySelectorAll('button:not([type]),button[type=submit],input[type=submit],input[type=image]'),
+      ...(form.id ? document.querySelectorAll(`[form="${CSS.escape(form.id)}"]:is(button:not([type]),button[type=submit],input[type=submit])`) : [])].filter(visible);
+    const btn = buttons[0] || null;
+    const planned = fields.map(f => ({ selector: path(f), label: fieldLabel(f).slice(0, 50), type: f.tagName === 'INPUT' ? (f.type || 'text') : f.tagName.toLowerCase(), plan: plan(f) }));
+    let action = ''; try { action = new URL(form.getAttribute('action') || location.href, location.href).href; } catch { /* ungültig */ }
+    let sig = ''; try { sig = new URL(action).pathname; } catch { /* leer */ }
+    sig += '|' + fields.map(f => `${f.type}:${f.name || f.id}`).sort().join(',');
+    out.push({ name: formName(form, i), selector: path(form), sig, action,
+      submit: btn ? { selector: path(btn), label: (text(btn) || btn.value || btn.getAttribute('aria-label') || 'Absenden').slice(0, 40) } : null,
+      fields: planned.filter(p => p.plan), unplanned: planned.filter(p => !p.plan).length });
+  });
+  return out;
+}
+
+// Im Browser: Beobachter für das Absenden einrichten.
+function armFormProbe() {
+  const s = window.__bfsgForm = { invalid: 0, submit: 0, prevented: false, mutations: 0 };
+  document.addEventListener('invalid', () => { s.invalid++; }, true);
+  document.addEventListener('submit', e => { s.submit++; setTimeout(() => { if (e.defaultPrevented) s.prevented = true; }, 0); }, true);
+  new MutationObserver(list => { s.mutations += list.length; }).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+}
+
+// Öffnet eine Seite frisch und führt optional Schritte aus (für jeden Formulartest neu).
+async function openFresh(context, url, steps, opts) {
+  const page = await context.newPage();
+  try {
+    await page.goto(url, { waitUntil: 'load', timeout: opts.timeout });
+    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+    for (const step of steps || []) await runStep(page, step, opts.timeout);
+    await page.waitForTimeout(300);
+    return page;
+  } catch (e) {
+    await page.close();
+    throw e;
+  }
+}
+
+const FORM_RESULTS = {
+  browser: '🛑 Absenden vom Browser verhindert (Standard-Fehlerblase)',
+  skript: '🛑 Absenden per Skript verhindert',
+  alert: '🛑 Fehler als alert()-Dialog',
+  abgeschickt: '⚠️ würde trotz falscher Eingaben abgeschickt — Anfrage blockiert, nichts gesendet; Fehlermeldungen manuell prüfen',
+  'keine-reaktion': '❔ keine erkennbare Reaktion — manuell prüfen',
+  fehler: '⚠️ nicht bedienbar',
+};
+
+async function triggerForm(context, page, form, opts) {
+  const blocked = [];
+  const pageOrigin = new URL(page.url()).origin;
+  let actionOrigin = null; try { actionOrigin = new URL(form.action).origin; } catch { /* keine */ }
+  const guard = route => {
+    const r = route.request();
+    const nav = r.isNavigationRequest();
+    const mutating = r.method() !== 'GET';
+    const xhr = ['xhr', 'fetch', 'ping', 'eventsource', 'websocket'].includes(r.resourceType());
+    if (!(nav || mutating || xhr)) return route.continue();
+    let origin = null; try { origin = new URL(r.url()).origin; } catch { /* keine */ }
+    const isSubmit = nav || (mutating && (origin === pageOrigin || origin === actionOrigin)) || r.url().split('?')[0] === (form.action || '').split('?')[0];
+    blocked.push({ url: r.url(), method: r.method(), isSubmit });
+    return route.abort('blockedbyclient');
+  };
+  const dialogs = [];
+  const onDialog = d => { dialogs.push(d.message().slice(0, 120)); d.dismiss().catch(() => {}); };
+  const popups = [];
+  const onPage = p => popups.push(p);
+  page.on('dialog', onDialog);
+  context.on('page', onPage);
+  await context.route('**/*', guard);
+  const used = [];
+  try {
+    await page.evaluate(armFormProbe);
+    const t = { timeout: 3000 };
+    for (const f of form.fields) {
+      const loc = page.locator(f.selector).first();
+      if (f.plan.action === 'fill') await loc.fill(f.plan.value, t);
+      else if (f.plan.action === 'uncheck') await loc.uncheck(t);
+      else if (f.plan.action === 'select-empty') {
+        const empty = await loc.evaluate(s => [...s.options].findIndex(o => o.value === ''));
+        if (empty < 0) continue;
+        await loc.selectOption({ index: empty }, t);
+      }
+      used.push({ label: f.label, value: f.plan.value, why: f.plan.why });
+    }
+    if (form.submit) await page.locator(form.submit.selector).first().click(t);
+    else if (form.fields.some(f => f.plan.action === 'fill')) await page.locator(form.fields.find(f => f.plan.action === 'fill').selector).first().press('Enter', t);
+    else return { result: 'keine-reaktion', note: 'kein Absenden-Button gefunden', used };
+    await page.waitForTimeout(1000);
+    const probe = await page.evaluate(() => window.__bfsgForm || null).catch(() => null);
+    if (blocked.some(b => b.isSubmit)) return { result: 'abgeschickt', used, note: '' };
+    if (!probe) return { result: 'keine-reaktion', used, note: 'Seite nach dem Absenden nicht mehr auswertbar' };
+    if (probe.invalid > 0 && probe.submit === 0) return { result: 'browser', used, note: '' };
+    if (dialogs.length) return { result: 'alert', used, note: `„${dialogs[0]}“` };
+    if (probe.submit > 0 && probe.prevented) return { result: 'skript', used, note: '' };
+    if (probe.mutations > 0) return { result: 'skript', used, note: '' };
+    return { result: 'keine-reaktion', used, note: '' };
+  } catch (e) {
+    const msg = e.message.split('\n')[0];
+    const why = /intercepts pointer events/i.test(msg) ? 'Button verdeckt (z. B. durch Cookie-Banner)'
+      : /Timeout/i.test(msg) ? 'Feld oder Button nicht bedienbar (Zeitlimit überschritten)' : msg.slice(0, 120);
+    return { result: 'fehler', used, note: why };
+  } finally {
+    await context.unroute('**/*', guard).catch(() => {});
+    page.off('dialog', onDialog);
+    context.off('page', onPage);
+    for (const p of popups) await p.close().catch(() => {});
+  }
+}
+
+// Prüft alle Formulare eines Zustands; jedes Formular auf einer frisch geöffneten Seite.
+async function testForms(context, url, steps, label, opts, report) {
+  let path = url; try { const u = new URL(url); path = u.pathname + u.search; } catch { /* keine URL */ }
+  const place = `${label} (${path})`;
+  let page;
+  try { page = await openFresh(context, url, steps, opts); } catch (e) { report.errors.push(`Formulare in ${place}: ${e.message.split('\n')[0]}`); return; }
+  const forms = await page.evaluate(findForms).catch(() => []);
+  await page.close();
+  report.forms = report.forms || [];
+  for (const form of forms.slice(0, MAX_FORMS_PER_STATE)) {
+    const known = report.forms.find(f => f.sig === form.sig);
+    if (known) { if (!known.places.includes(place)) known.places.push(place); continue; }
+    const entry = { name: form.name, sig: form.sig, places: [place], selector: form.selector, submit: form.submit ? form.submit.label : null, result: '', note: '', inputs: [] };
+    report.forms.push(entry);
+    let p;
+    try { p = await openFresh(context, url, steps, opts); } catch (e) { entry.result = 'fehler'; entry.note = `Seite nicht geladen: ${e.message.split('\n')[0]}`; continue; }
+    try {
+      const r = await triggerForm(context, p, form, opts);
+      entry.result = r.result; entry.note = r.note || ''; entry.inputs = r.used;
+      if (!form.fields.length && r.result !== 'fehler') entry.note = (entry.note ? entry.note + '; ' : '') + 'keine Eingabe-Vorgaben erkennbar, leer abgeschickt';
+    } finally {
+      await p.close().catch(() => {});
+    }
+  }
+  if (forms.length > MAX_FORMS_PER_STATE) report.errors.push(`${place}: nur die ersten ${MAX_FORMS_PER_STATE} von ${forms.length} Formularen geprüft`);
 }
 
 // ---------------------------------------------------------------------------
@@ -618,6 +829,21 @@ function renderMd(report) {
     out.push('');
     for (const st of notes) out.push(`- **${st.name}:**${st.steps.length ? ` Schritte: ${st.steps.join(' → ')}.` : ''}${st.note ? ` ${st.note}` : ''}`);
   }
+  if (report.formsTested) {
+    out.push('', '## Formulare mit falschen Eingaben', '');
+    if (!report.forms.length) out.push('Keine prüfbaren Formulare gefunden (Suchfelder und Formulare ohne Texteingabe werden übersprungen).');
+    else {
+      out.push('Jedes Formular wurde frisch geladen, absichtlich falsch ausgefüllt und abgeschickt. Dabei war das Netzwerk gesperrt: Es wurde nichts an den Server gesendet.', '',
+        '| Formular | Seite/Zustand | Falsche Eingaben | Ergebnis |', '|---|---|---|---|');
+      const cell = t => String(t).replace(/\|/g, '/');
+      for (const f of report.forms) {
+        const inputs = f.inputs.length ? f.inputs.map(i => `${i.label}: ${i.value === '' ? 'leer' : `„${i.value}“`} (${i.why})`).join('; ') : '–';
+        const where = f.places.length > 1 ? `${f.places[0]} und ${f.places.length - 1} weitere` : f.places[0];
+        out.push(`| ${cell(f.name)} | ${cell(where)} | ${cell(inputs)} | ${cell(FORM_RESULTS[f.result] || f.result)}${f.note ? ` (${cell(f.note)})` : ''} |`);
+      }
+    }
+  }
+
   out.push('', '**Nicht geprüfte Zustände:**');
   const open = report.states.filter(st => st.status !== 'geprüft').map(st => `${st.name}${st.status === 'fehlgeschlagen' ? ' (Schritte fehlgeschlagen, siehe oben)' : ''}`);
   if (report.usedStatesFile) {
@@ -625,7 +851,7 @@ function renderMd(report) {
     out.push('- alle Zustände, die nicht in der Zustandsdatei stehen');
   } else {
     out.push('Geprüft wurde nur der Zustand direkt nach dem Laden. Diese typischen Zustände sind offen — mit `--states` lassen sie sich durchklicken:');
-    DEFAULT_OPEN_STATES.forEach(o => out.push(`- ${o}`));
+    DEFAULT_OPEN_STATES.forEach(o => out.push(`- ${o}${/^Validierungsfehler/.test(o) && !report.formsTested ? ' — mit `--forms` automatisch auslösbar' : ''}`));
   }
 
   // Ursachen: was mehrfach auftritt, hat meist eine gemeinsame Ursache
@@ -667,6 +893,8 @@ function renderMd(report) {
     '- Qualität von Alternativtexten, Linktexten und Fehlermeldungen',
     '- Untertitel und Audiodeskription bei Videos (1.2.x)',
     '- alle unter „Nicht geprüfte Zustände“ genannten Zustände');
+  const formOpen = (report.forms || []).filter(f => ['abgeschickt', 'keine-reaktion', 'fehler'].includes(f.result));
+  if (formOpen.length) out.push(`- Fehlermeldungen dieser Formulare (automatisch nicht auslösbar): ${formOpen.map(f => f.name).join(', ')}`);
   return out.join('\n');
 }
 
@@ -712,9 +940,10 @@ async function main() {
   const viewport = opts.mobile ? { width: 390, height: 844 } : { width: 1280, height: 900 };
   const context = await browser.newContext({
     bypassCSP: true, // erlaubt das Einspielen von axe-core auch bei strenger Content-Security-Policy
+    serviceWorkers: 'block', // damit die Netzwerk-Sperre beim Formulartest nicht umgangen wird
     locale: 'de-DE', viewport, isMobile: opts.mobile, hasTouch: opts.mobile,
   });
-  const report = { version: VERSION, engine: '', viewport: opts.mobile ? 'mobil 390×844' : 'Desktop 1280×900', pages: [], errors: [], findings: {}, manual: {}, states: [], usedStatesFile: !!states, causes: {} };
+  const report = { version: VERSION, engine: '', viewport: opts.mobile ? 'mobil 390×844' : 'Desktop 1280×900', pages: [], errors: [], findings: {}, manual: {}, states: [], usedStatesFile: !!states, causes: {}, forms: [], formsTested: opts.forms };
 
   // Mit Zustandsdatei: die angegebenen URLs dienen als Basis, geprüft werden die Zustände
   const queue = states ? [] : [...opts.urls];
@@ -747,7 +976,7 @@ async function main() {
 
   if (opts.json) {
     const findings = Object.values(report.findings).sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity] || a.id.localeCompare(b.id));
-    console.log(JSON.stringify({ ...report, findings, causes: sortedCauses(report) }, null, 2));
+    console.log(JSON.stringify({ ...report, findings, causes: sortedCauses(report), forms: report.forms.map(({ sig, ...f }) => f) }, null, 2));
   } else {
     console.log(renderMd(report));
   }

@@ -22,6 +22,19 @@ CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; 
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    # Alle Anfragen an das Formularziel — dürfen beim Formulartest nie ankommen
+    received = []
+
+    def do_POST(self):
+        Handler.received.append(("POST", self.path))
+        self.send_response(200)
+        self.end_headers()
+
+    def do_GET(self):
+        if "/danke" in self.path:
+            Handler.received.append(("GET", self.path))
+        super().do_GET()
+
     def end_headers(self):
         if self.path.startswith("/browser/csp/"):
             self.send_header("Content-Security-Policy", CSP)
@@ -305,3 +318,66 @@ class UrsachenMitAxe(Ursachen):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Formulare(BrowserScanBase):
+    """--forms: Formulare falsch ausfüllen, absenden, nichts an den Server senden."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        Handler.received.clear()
+        cls.code, cls.data, cls.err = run(f"{cls.base}/browser/formulare/index.html", "--no-axe", "--forms")
+        cls.received = list(Handler.received)
+
+    def form(self, name):
+        return next(f for f in self.data["forms"] if f["name"] == name)
+
+    def test_nichts_an_den_server_gesendet(self):
+        self.assertEqual(self.received, [])
+
+    def test_formulare_erkannt_und_uebersprungen(self):
+        # Suche, Warenkorb-Formular (nur Mengenfeld) und verstecktes Formular werden nicht getestet
+        self.assertEqual({f["name"] for f in self.data["forms"]}, {"Kontakt", "Rückruf anfordern", "Gutschein", "Newsletter"})
+
+    def test_falsche_eingaben_geplant(self):
+        inputs = {i["label"]: i for i in self.form("Kontakt")["inputs"]}
+        self.assertEqual(inputs["Name"]["value"], "")
+        self.assertEqual(inputs["E-Mail"]["value"], "abc")
+        self.assertIn("Format", inputs["PLZ"]["why"])
+        self.assertIn("10 Zeichen", inputs["Nachricht"]["why"])
+        # E-Mail nur über die Beschriftung erkennbar
+        self.assertEqual(self.form("Newsletter")["inputs"][0]["value"], "abc")
+
+    def test_ergebnisse(self):
+        self.assertEqual(self.form("Kontakt")["result"], "browser")
+        self.assertEqual(self.form("Newsletter")["result"], "skript")
+        self.assertEqual(self.form("Gutschein")["result"], "alert")
+        self.assertIn("Gutscheincode", self.form("Gutschein")["note"])
+        self.assertEqual(self.form("Rückruf anfordern")["result"], "abgeschickt")
+
+    def test_gleiches_formular_nur_einmal(self):
+        Handler.received.clear()
+        p = subprocess.run(["node", SCRIPT, f"{self.base}/browser/formulare/index.html", f"{self.base}/browser/formulare/seite2.html",
+                            "--max-pages", "0", "--json", "--no-axe", "--forms"], capture_output=True, text=True, timeout=180)
+        data = json.loads(p.stdout)
+        news = [f for f in data["forms"] if f["name"] == "Newsletter"]
+        self.assertEqual(len(news), 1)
+        self.assertEqual(len(news[0]["places"]), 2)
+        self.assertEqual(Handler.received, [])
+
+    def test_bericht(self):
+        p = subprocess.run(["node", SCRIPT, f"{self.base}/browser/formulare/index.html", "--max-pages", "0", "--no-axe", "--forms"],
+                           capture_output=True, text=True, timeout=180)
+        self.assertIn("## Formulare mit falschen Eingaben", p.stdout)
+        self.assertIn("nichts an den Server gesendet", p.stdout)
+        self.assertIn("Fehlermeldungen dieser Formulare", p.stdout)
+
+    def test_ohne_option_kein_formulartest(self):
+        Handler.received.clear()
+        code, data, _ = run(f"{self.base}/browser/formulare/index.html", "--no-axe")
+        self.assertEqual(data["forms"], [])
+        p = subprocess.run(["node", SCRIPT, f"{self.base}/browser/formulare/index.html", "--max-pages", "0", "--no-axe"],
+                           capture_output=True, text=True, timeout=180)
+        self.assertNotIn("## Formulare mit falschen Eingaben", p.stdout)
+        self.assertIn("mit `--forms` automatisch auslösbar", p.stdout)

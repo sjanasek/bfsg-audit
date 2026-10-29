@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><title>Formulare – Testseite</title></head>
+<body>
+<header>
+  <form role="search" action="/suche"><label for="q">Suche</label><input id="q" name="q" type="search"><button>Suchen</button></form>
+</header>
+<main>
+  <h1>Formulare</h1>
+
+  <h2>Kontakt</h2>
+  <form action="/browser/formulare/danke" method="post">
+    <label for="name">Name</label><input id="name" name="name" required>
+    <label for="email">E-Mail</label><input id="email" name="email" type="email" required>
+    <label for="plz">PLZ</label><input id="plz" name="plz" pattern="[0-9]{5}">
+    <label for="nachricht">Nachricht</label><textarea id="nachricht" name="nachricht" minlength="10"></textarea>
+    <button type="submit">Senden</button>
+  </form>
+
+  <h2>Rückruf anfordern</h2>
+  <form action="/browser/formulare/danke" method="post" novalidate>
+    <label for="tel">Telefon</label><input id="tel" name="tel" type="tel" required>
+    <button>Rückruf anfordern</button>
+  </form>
+
+  <form class="gutschein" aria-label="Gutschein" novalidate>
+    <label for="code">Gutscheincode</label><input id="code" name="code" required>
+    <button>Einlösen</button>
+  </form>
+
+  <form action="/warenkorb" method="post">
+    <input type="hidden" name="id" value="42">
+    <label for="menge">Menge</label><input id="menge" name="menge" type="number" min="1" value="1">
+    <button>In den Warenkorb</button>
+  </form>
+
+  <form style="display:none" action="/versteckt"><label for="x">X</label><input id="x" name="x" required><button>OK</button></form>
+</main>
+<footer>
+  <form class="newsletter" aria-label="Newsletter" action="/browser/formulare/danke" method="post" novalidate>
+    <label for="nl">E-Mail für den Newsletter</label><input id="nl" name="nl">
+    <button>Anmelden</button>
+  </form>
+</footer>
+<script src="newsletter.js"></script>
+</body>
+</html>

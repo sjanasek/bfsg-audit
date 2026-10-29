@@ -66,6 +66,14 @@ Sicherheitsregeln für Zustände:
 
 Der Bericht enthält eine Tabelle **„Geprüfte Zustände“** (geprüft / fehlgeschlagen / manuell offen, Befunde je Zustand) und eine Liste **„Nicht geprüfte Zustände“**. Übernimm beides in deinen Bericht: So sieht man, welche Teile eines Ablaufs geprüft sind und welche noch offen. Schlägt ein Zustand fehl, korrigiere den Selektor und lass ihn erneut laufen, statt ihn wegzulassen.
 
+**Formulare mit falschen Eingaben (`--forms`).** Bei Shops, Kontakt-, Login- und Checkout-Formularen immer mitlaufen lassen. Der Scan lädt jedes Formular frisch, füllt es absichtlich falsch aus (Pflichtfeld leer, „abc“ als E-Mail, verletztes Muster, zu kurze PLZ) und klickt auf Absenden. Dabei sperrt er Navigation, POST und fetch/XHR, deshalb erreicht nichts den Server — das ist auch auf Live-Seiten zulässig. Suchfelder und Formulare ohne Texteingabe (z. B. „In den Warenkorb“) überspringt er. Gleiche Formulare auf mehreren Seiten (Newsletter im Footer) prüft er einmal.
+
+```bash
+node scripts/browser-scan.mjs https://example.de --forms
+```
+
+Der Bericht zeigt je Formular die falschen Eingaben und das Ergebnis: vom Browser verhindert (Standard-Fehlerblase), per Skript verhindert, Fehler als `alert()`, würde trotz falscher Eingaben abgeschickt (Fehler kommen vom Server → manuell oder über die Zustandsdatei auf einer Testumgebung prüfen) oder keine erkennbare Reaktion. Übernimm die Tabelle in den Bericht unter „Geprüfte Zustände“.
+
 Was der Browser-Scan nicht abdeckt, prüfst du, wenn du Browser-Tools hast, selbst: Zoom 400 % bzw. 320 px Breite, Fehlermeldungen auf Verständlichkeit. Kein Browser verfügbar → im Bericht unter "Manuell zu prüfen" auflisten, nicht weglassen.
 
 Für automatische Prüfungen in CI/CD: `--fail-on kritisch` (oder `wichtig`) liefert Exit-Code 1, wenn solche Befunde vorliegen.
@@ -108,7 +116,7 @@ Stand: [Datum] · Maßstab: WCAG 2.1 AA (De-facto-Referenz EN 301 549 V3.2.1), W
 ## 🟡 Empfehlung
 ## ❓ Offene Fragen
 ## Geprüfte Zustände
-[Tabelle aus dem Browser-Scan: Zustand · Seite · Status · Befunde — plus nicht geprüfte Zustände]
+[Tabelle aus dem Browser-Scan: Zustand · Seite · Status · Befunde — plus nicht geprüfte Zustände; mit `--forms` zusätzlich die Formular-Tabelle]
 
 ## 👤 Manuell zu prüfen
 [was ohne Browser/Screenreader nicht prüfbar war — konkret, z. B. "Kontrast der grauen Preisangaben", "Stripe-Zahlungsformular mit NVDA"]
