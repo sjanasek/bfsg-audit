@@ -91,6 +91,37 @@ Häufige `autocomplete`-Werte: `given-name`, `family-name`, `email`, `tel`, `str
 
 Pflichtfeld-Hinweis einmal oberhalb des Formulars als Text: "Felder mit * sind Pflichtfelder."
 
+### Fehler beim Absenden (3.3.1, 1.4.1, 3.3.7)
+
+Passt zu den Befunden `error-no-text`, `error-color-only` und `input-lost` aus `browser-scan.mjs --forms`. Grundsätze: Fehler als Text am Feld (nicht nur roter Rahmen), Feld per `aria-invalid` und `aria-describedby` markieren, Fokus auf das erste fehlerhafte Feld, eingegebene Werte stehen lassen (kein `form.reset()`, kein Neurendern mit leeren Werten). Für eigene Meldungen statt der Browser-Fehlerblase `novalidate` ans `<form>` setzen.
+
+```js
+form.addEventListener('submit', (e) => {
+  const fehler = [];
+  for (const input of form.querySelectorAll('input, select, textarea')) {
+    const meldung = document.getElementById(`${input.id}-fehler`);
+    if (!meldung) continue;
+    const ok = input.checkValidity();
+    input.setAttribute('aria-invalid', String(!ok));
+    meldung.textContent = ok ? '' : (input.dataset.fehler || input.validationMessage);
+    meldung.hidden = ok;
+    if (!ok) fehler.push(input);
+  }
+  if (fehler.length) {
+    e.preventDefault();          // Werte bleiben stehen — nichts zurücksetzen
+    fehler[0].focus();           // Screenreader liest Feld + verknüpfte Meldung vor
+  }
+});
+```
+```html
+<input id="email" type="email" required aria-describedby="email-fehler"
+       data-fehler="Bitte eine E-Mail-Adresse im Format name@example.de eingeben.">
+<p id="email-fehler" class="error" hidden></p>
+```
+CSS-Markierung zusätzlich zum Text ist gut, aber nie allein: `.error::before { content: "⚠ "; }` bzw. Icon plus Text.
+
+React: Fehlerzustand pro Feld im State halten und die Eingabewerte im State lassen; bei Fehlern **nicht** `reset()` aus react-hook-form aufrufen, sondern `setFocus(name)` auf das erste Feld.
+
 ### Passwortfeld (3.3.8 [2.2])
 
 ```html

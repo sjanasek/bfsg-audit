@@ -2,7 +2,7 @@
 
 Maßstab: WCAG 2.1 Level AA (De-facto-Referenz über EN 301 549 V3.2.1). Kriterien, die erst mit WCAG 2.2 dazukommen, sind mit **[2.2]** markiert → 🟡 Empfehlung, solange keine Norm mit WCAG 2.2 zum EAA im Amtsblatt zitiert ist (siehe `rechtsrahmen.md`).
 
-Legende: ⚙️ = findet `scripts/scan.py` statisch · 🧪 = findet ein Runtime-Tool (axe-core) · 👤 = nur manuell prüfbar
+Legende: ⚙️ = findet `scripts/scan.py` statisch · 🧪 = findet der Browser-Scan (axe-core bzw. eigene Regeln; 🧪 `--forms` = nur mit dieser Option) · 👤 = nur manuell prüfbar
 
 Fix-Code zu den häufigsten Punkten: `fix-muster.md`.
 
@@ -26,7 +26,7 @@ Fix-Code zu den häufigsten Punkten: `fix-muster.md`.
 | 1.3.2 Bedeutungstragende Reihenfolge (A) | DOM-Reihenfolge = visuelle Reihenfolge (CSS `order`, absolute Positionierung) | 👤 | DOM umsortieren |
 | 1.3.4 Ausrichtung (AA) | Kein Sperren auf Hoch-/Querformat | ⚙️ (CSS/Manifest `orientation`) | Sperre entfernen |
 | 1.3.5 Zweck von Eingaben (AA) | `autocomplete` bei Name, E-Mail, Telefon, Adresse, Zahlungsdaten | ⚙️ | `autocomplete="email"` usw. |
-| 1.4.1 Farbe (A) | Info nicht nur über Farbe (Pflichtfelder rot, Links nur farbig) | 👤 | Text/Icon zusätzlich, Links unterstreichen |
+| 1.4.1 Farbe (A) | Info nicht nur über Farbe (Pflichtfelder rot, Links nur farbig) | 🧪 `--forms` (Fehler nur farbig markiert) 👤 | Text/Icon zusätzlich, Links unterstreichen |
 | 1.4.2 Audio-Steuerung (A) | Kein Autoplay mit Ton > 3 s ohne Stopp | ⚙️ | `autoplay` entfernen oder `muted` |
 | 1.4.3 Kontrast (AA) | Text ≥ 4,5:1, großer Text (≥ 18 pt bzw. ≥ 14 pt fett, ≈ 24 px / 18,67 px) ≥ 3:1 | 🧪 | Farben anpassen; Platzhaltertext beachten |
 | 1.4.4 Textgröße (AA) | 200 % Zoom ohne Verlust; Zoom nicht gesperrt | ⚙️👤 | `user-scalable=no` / `maximum-scale=1` entfernen; `rem` statt `px` für Schrift |
@@ -65,11 +65,11 @@ Fix-Code zu den häufigsten Punkten: `fix-muster.md`.
 | 3.2.1/3.2.2 Bei Fokus/Eingabe (A) | Keine unerwarteten Kontextwechsel (Auto-Submit bei `<select>`-Änderung) | ⚙️ (`onchange="this.form.submit()"`) 👤 | expliziter Button |
 | 3.2.3/3.2.4 Konsistente Navigation/Erkennung (AA) | Navigation und Komponenten seitenübergreifend gleich | 👤 | — |
 | 3.2.6 Konsistente Hilfe [2.2] (A) | Kontakt/Hilfe an gleicher Stelle auf allen Seiten | 👤 | Footer-Link |
-| 3.3.1 Fehlererkennung (A) | Fehler als Text, beim Feld, programmatisch verknüpft | ⚙️ (teilweise) 👤 | `aria-describedby`, `aria-invalid` |
+| 3.3.1 Fehlererkennung (A) | Fehler als Text, beim Feld, programmatisch verknüpft | ⚙️ (teilweise) 🧪 `--forms` (Fehlertext erscheint?) 👤 | `aria-describedby`, `aria-invalid` |
 | 3.3.2 Beschriftungen (A) | Jedes Feld hat sichtbares Label; Pflichtfelder gekennzeichnet | ⚙️ | `<label>`, `required` |
 | 3.3.3 Fehlerkorrektur (AA) | Korrekturvorschlag ("Bitte gültige PLZ mit 5 Ziffern") | 👤 | — |
 | 3.3.4 Fehlervermeidung (AA) | **Bestellung**: Prüfen, korrigieren oder stornieren vor Abschluss möglich | 👤 | Bestellübersicht vor "zahlungspflichtig bestellen" |
-| 3.3.7 Redundante Eingabe [2.2] (A) | Bereits eingegebene Daten nicht erneut verlangen (Rechnungs-/Lieferadresse) | 👤 | "Lieferadresse = Rechnungsadresse" |
+| 3.3.7 Redundante Eingabe [2.2] (A) | Bereits eingegebene Daten nicht erneut verlangen (Rechnungs-/Lieferadresse, Eingaben nach Fehler gelöscht) | 🧪 `--forms` (Eingaben nach Fehler) 👤 | "Lieferadresse = Rechnungsadresse" |
 | 3.3.8 Barrierefreie Authentifizierung [2.2] (AA) | Login ohne kognitiven Funktionstest (Rätsel, Rechenaufgabe, Passwort abtippen ohne Hilfsmittel) — Objekterkennung ist auf AA ausgenommen; Einfügen in Passwortfelder erlaubt, Passwortmanager funktionieren | ⚙️ (paste-Blocker, `autocomplete="off"` an Passwort) 👤 | paste erlauben, `autocomplete="current-password"`, Captcha-Alternative |
 
 ## 4. Robust

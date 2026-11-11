@@ -13,6 +13,8 @@
   - Formular-Tabelle zeigt den Fehlertext und ob Eingaben erhalten bleiben; im JSON `errorText` und `inputsKept`
   - Seiten, die sich ohne Zutun verändern (Slider, Animationen), werden nicht als Reaktion gewertet
   - bis zu 10 Formulare je Seite bzw. Zustand
+  - Fix-Muster „Fehler beim Absenden“ in `references/fix-muster.md`; WCAG-Prüfliste zeigt, was `--forms` abdeckt
+- CI: Test-Rechner fest auf Ubuntu 24.04 (Playwright 1.56 unterstützt Ubuntu 26.04 nicht)
 
 ## 1.3.0 — 2026-10-28
 

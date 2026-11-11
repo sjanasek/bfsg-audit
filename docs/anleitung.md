@@ -263,6 +263,9 @@ WCAG 2.1 Stufe AA als anerkannter Maßstab (über die Norm EN 301 549 V3.2.1). D
 **Werden meine Daten irgendwohin geschickt?**
 Nein. Der Skill sammelt und speichert nichts. Siehe [Datenschutzhinweis](../PRIVACY.md).
 
+**Ist `--forms` auf meiner Live-Seite gefahrlos?**
+Ja. Während der Scan auf „Absenden“ klickt, sind Navigation, POST-Anfragen und Hintergrund-Anfragen gesperrt, deshalb kommt beim Server nichts an. Es entstehen also keine Bestellungen, Anmeldungen oder E-Mails. Ein automatischer Test prüft genau das bei jeder Änderung am Skill.
+
 **Prüft der Skill auch Datenschutz und Impressum?**
 Nein, bewusst nicht. Das sind eigene Themen mit eigenen Gesetzen.
 

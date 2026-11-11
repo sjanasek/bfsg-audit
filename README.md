@@ -77,7 +77,7 @@ node skills/bfsg-audit/scripts/browser-scan.mjs http://localhost:3000 --max-page
 
 Mit `--fail-on kritisch` eignet es sich als automatischer Check bei jedem Deployment.
 
-**Formulare mit falschen Eingaben (neu):** Mit `--forms` füllt der Scan Formulare absichtlich falsch aus, klickt auf Absenden und hält fest, ob und wie die Seite den Fehler meldet. Das Netzwerk ist dabei gesperrt, nichts erreicht den Server.
+**Formulare mit falschen Eingaben (neu):** Mit `--forms` füllt der Scan Formulare absichtlich falsch aus, klickt auf Absenden und hält fest, ob und wie die Seite den Fehler meldet. Er findet Fehler, die nur rot markiert werden, Fehler ganz ohne Meldung und Formulare, die nach einem Fehler alle Eingaben löschen. Das Netzwerk ist dabei gesperrt, nichts erreicht den Server. Details in der [Anleitung](docs/anleitung.md#formulare-mit-falschen-eingaben).
 
 **Ursachen statt Symptome (neu in 1.3):** Der Bericht fasst Fundstellen mit gemeinsamer Ursache zusammen, z. B. „Komponente `li.product-card` — behebt 80 Fundstellen“ oder „Textfarbe #a0a0a0 (Variable `--color-muted`) — behebt 12 Fundstellen, Vorschlag #757575“. Sortiert nach Wirkung, ohne geschätzte Aufwände. Der statische Scan zeigt, in welchen Dateien sich Fundstellen sammeln.
 
@@ -145,6 +145,6 @@ Reports are written in German, since that is what clients and authorities in Ger
 
 **Scanner only (Python 3.9+, no dependencies):** `python3 skills/bfsg-audit/scripts/scan.py <folder|url> [--json]`
 
-**Browser scan (Node 18+, Playwright, axe-core):** `node skills/bfsg-audit/scripts/browser-scan.mjs <url> [--max-pages N] [--mobile] [--fail-on kritisch]` — renders the page, runs axe-core and a keyboard walk-through (visible focus, keyboard traps).
+**Browser scan (Node 18+, Playwright, axe-core):** `node skills/bfsg-audit/scripts/browser-scan.mjs <url> [--max-pages N] [--mobile] [--fail-on kritisch] [--states file.json] [--forms]` — renders the page, runs axe-core and a keyboard walk-through (visible focus, keyboard traps). `--states` checks dialogs, error states or a filled cart; `--forms` submits forms with invalid input (network blocked, nothing reaches the server) and reports errors without text, errors shown only by colour, and lost input. Findings are grouped by root cause (component, colour variable).
 
 License: MIT.
