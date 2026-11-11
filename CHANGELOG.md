@@ -7,6 +7,12 @@
   - Abschicken-Schutz: Navigation, POST und fetch/XHR sind beim Absenden gesperrt, Service Worker blockiert
   - Ergebnis je Formular: vom Browser verhindert, per Skript verhindert, alert(), würde abgeschickt, keine Reaktion; im JSON als `forms`
   - gleiche Formulare auf mehreren Seiten werden einmal geprüft
+- Neu: Fehlertext und Eingaben nach dem Absenden (Issue #3)
+  - Befund „Fehler ohne Fehlermeldung“ (3.3.1) und „Fehler nur durch Farbe gekennzeichnet“ (1.4.1 / 3.3.1), beide kritisch
+  - Befund „Eingaben gehen nach einem Fehler verloren“ (3.3.7, Empfehlung)
+  - Formular-Tabelle zeigt den Fehlertext und ob Eingaben erhalten bleiben; im JSON `errorText` und `inputsKept`
+  - Seiten, die sich ohne Zutun verändern (Slider, Animationen), werden nicht als Reaktion gewertet
+  - bis zu 10 Formulare je Seite bzw. Zustand
 
 ## 1.3.0 — 2026-10-28
 

@@ -338,7 +338,8 @@ class Formulare(BrowserScanBase):
 
     def test_formulare_erkannt_und_uebersprungen(self):
         # Suche, Warenkorb-Formular (nur Mengenfeld) und verstecktes Formular werden nicht getestet
-        self.assertEqual({f["name"] for f in self.data["forms"]}, {"Kontakt", "Rückruf anfordern", "Gutschein", "Newsletter"})
+        self.assertEqual({f["name"] for f in self.data["forms"]},
+                         {"Kontakt", "Rückruf anfordern", "Gutschein", "Anmelden", "Rabattcode", "Profil", "Nachricht an uns", "Newsletter"})
 
     def test_falsche_eingaben_geplant(self):
         inputs = {i["label"]: i for i in self.form("Kontakt")["inputs"]}
@@ -381,3 +382,42 @@ class Formulare(BrowserScanBase):
                            capture_output=True, text=True, timeout=180)
         self.assertNotIn("## Formulare mit falschen Eingaben", p.stdout)
         self.assertIn("mit `--forms` automatisch auslösbar", p.stdout)
+
+    # --- Issue #3: Fehlertext und erhaltene Eingaben ---
+
+    def test_fehlertext_erkannt(self):
+        self.assertIn("Bitte eine gültige E-Mail-Adresse", self.form("Newsletter")["errorText"])
+        self.assertIn("Bitte Eingaben prüfen", self.form("Profil")["errorText"])
+        self.assertEqual(self.form("Kontakt")["errorText"], "Fehlerblase des Browsers")
+        self.assertIn("Gutscheincode", self.form("Gutschein")["errorText"])
+
+    def test_fehler_nur_durch_farbe(self):
+        f = ids(self.data)["error-color-only"]
+        self.assertEqual(f["severity"], "kritisch")
+        self.assertEqual(len(f["locations"]), 1)
+        self.assertIn("Anmelden", f["locations"][0])
+        self.assertIn("Benutzername", f["locations"][0])
+
+    def test_fehler_ohne_meldung(self):
+        f = ids(self.data)["error-no-text"]
+        self.assertEqual(len(f["locations"]), 1)
+        self.assertIn("Rabattcode", f["locations"][0])
+
+    def test_eingaben_verloren(self):
+        self.assertFalse(self.form("Profil")["inputsKept"])
+        self.assertTrue(self.form("Newsletter")["inputsKept"])
+        self.assertTrue(self.form("Kontakt")["inputsKept"])
+        f = ids(self.data)["input-lost"]
+        self.assertEqual(len(f["locations"]), 1)
+        self.assertIn("Profil", f["locations"][0])
+        self.assertIn("E-Mail", f["locations"][0])
+
+    def test_gute_formulare_ohne_befund(self):
+        alle = " ".join(l for fid in ("error-no-text", "error-color-only", "input-lost") for l in ids(self.data)[fid]["locations"])
+        for name in ("Kontakt", "Newsletter", "Gutschein", "Rückruf"):
+            self.assertNotIn(f"„{name}", alle)
+
+    def test_laufende_animation_ist_keine_reaktion(self):
+        # Button ohne Funktion, daneben ändert ein Ticker ständig die Seite: kein Befund, sondern manuell prüfen
+        self.assertEqual(self.form("Nachricht an uns")["result"], "keine-reaktion")
+        self.assertNotIn("Nachricht an uns", " ".join(ids(self.data)["error-no-text"]["locations"]))

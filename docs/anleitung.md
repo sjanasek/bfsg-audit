@@ -229,6 +229,11 @@ Im Bericht steht danach je Formular, mit welchen falschen Eingaben es getestet w
 | ⚠️ würde abgeschickt | Im Browser wird nichts geprüft, die Fehler kommen erst vom Server. Das bitte auf einer Testumgebung prüfen |
 | ❔ keine erkennbare Reaktion | Nichts passiert, bitte von Hand prüfen |
 
+Wurde das Absenden verhindert, schaut der Scan außerdem nach:
+
+- **Erscheint ein Fehlertext?** Wird ein Feld nur rot umrandet, erfahren Menschen, die Farben nicht unterscheiden können oder einen Screenreader nutzen, nichts davon. Das meldet der Scan als „Fehler nur durch Farbe gekennzeichnet“. Passiert gar nichts Sichtbares, meldet er „Fehler ohne Fehlermeldung“. Beides ist kritisch.
+- **Bleiben die Eingaben erhalten?** Löscht die Seite nach einem Fehler alles, was schon eingetippt war, meldet der Scan „Eingaben gehen nach einem Fehler verloren“ (Empfehlung).
+
 Suchfelder und Formulare ohne Texteingabe (z. B. „In den Warenkorb“) werden übersprungen. Ein Formular, das auf mehreren Seiten vorkommt, etwa der Newsletter im Footer, wird nur einmal geprüft.
 
 **Bitte beachten:**

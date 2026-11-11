@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="de">
-<head><meta charset="utf-8"><title>Formulare – Testseite</title></head>
+<head><meta charset="utf-8"><title>Formulare – Testseite</title>
+<style>.ungueltig { border: 2px solid #c00; }</style></head>
 <body>
 <header>
   <form role="search" action="/suche"><label for="q">Suche</label><input id="q" name="q" type="search"><button>Suchen</button></form>
@@ -26,6 +27,31 @@
   <form class="gutschein" aria-label="Gutschein" novalidate>
     <label for="code">Gutscheincode</label><input id="code" name="code" required>
     <button>Einlösen</button>
+  </form>
+
+  <h2>Anmelden</h2>
+  <form class="nur-farbe" novalidate>
+    <label for="user">Benutzername</label><input id="user" name="user" required>
+    <button>Anmelden</button>
+  </form>
+
+  <form class="stumm" aria-label="Rabattcode" novalidate>
+    <label for="rabatt">Rabattcode</label><input id="rabatt" name="rabatt" required>
+    <button>Prüfen</button>
+  </form>
+
+  <h2>Profil</h2>
+  <form class="vergesslich" novalidate>
+    <div class="feld"><label for="pname">Name</label><input id="pname" name="pname" required></div>
+    <div class="feld"><label for="pmail">E-Mail</label><input id="pmail" name="pmail" type="email"></div>
+    <button>Speichern</button>
+  </form>
+
+  <h2>Nachricht an uns</h2>
+  <p id="ticker">Neu im Sortiment</p>
+  <form class="ohne-knopf" novalidate>
+    <label for="frage">Ihre Frage</label><textarea id="frage" name="frage" required></textarea>
+    <button type="button">Fragen</button>
   </form>
 
   <form action="/warenkorb" method="post">

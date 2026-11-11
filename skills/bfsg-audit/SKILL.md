@@ -74,6 +74,8 @@ node scripts/browser-scan.mjs https://example.de --forms
 
 Der Bericht zeigt je Formular die falschen Eingaben und das Ergebnis: vom Browser verhindert (Standard-Fehlerblase), per Skript verhindert, Fehler als `alert()`, würde trotz falscher Eingaben abgeschickt (Fehler kommen vom Server → manuell oder über die Zustandsdatei auf einer Testumgebung prüfen) oder keine erkennbare Reaktion. Übernimm die Tabelle in den Bericht unter „Geprüfte Zustände“.
 
+Wurde das Absenden verhindert, prüft der Scan außerdem, ob ein **Fehlertext** erscheint und ob die **Eingaben erhalten** bleiben. Befunde: „Fehler ohne Fehlermeldung“ und „Fehler nur durch Farbe gekennzeichnet“ (beide kritisch, 3.3.1 bzw. 1.4.1) sowie „Eingaben gehen nach einem Fehler verloren“ (Empfehlung, 3.3.7). Bestätige jeden Befund im Code: Such den Submit-Handler des Formulars und zeig den Fix dort. Veränderte sich die Seite schon ohne Zutun (Slider, Animationen), wertet der Scan Änderungen nicht als Reaktion und meldet „keine erkennbare Reaktion“ — dann von Hand prüfen.
+
 Was der Browser-Scan nicht abdeckt, prüfst du, wenn du Browser-Tools hast, selbst: Zoom 400 % bzw. 320 px Breite, Fehlermeldungen auf Verständlichkeit. Kein Browser verfügbar → im Bericht unter "Manuell zu prüfen" auflisten, nicht weglassen.
 
 Für automatische Prüfungen in CI/CD: `--fail-on kritisch` (oder `wichtig`) liefert Exit-Code 1, wenn solche Befunde vorliegen.

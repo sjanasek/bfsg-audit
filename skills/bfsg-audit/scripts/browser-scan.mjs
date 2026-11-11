@@ -546,7 +546,7 @@ async function auditState(context, st, opts, axeSrc, axeLocale, report) {
 // jede Anfrage außer GET sowie fetch/XHR. Es erreicht also nichts den Server.
 // Wollte das Formular wirklich etwas senden, wird das nur festgehalten.
 
-const MAX_FORMS_PER_STATE = 5;
+const MAX_FORMS_PER_STATE = 10;
 
 // Im Browser: Formulare finden, die sich sinnvoll prüfen lassen, und falsche Eingaben planen.
 function findForms() {
@@ -629,6 +629,38 @@ function armFormProbe() {
   new MutationObserver(list => { s.mutations += list.length; }).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
 }
 
+// Im Browser: sichtbare Texte und Feld-Stile vor dem Ausfüllen merken.
+function markVisibleTexts(selectors) {
+  const vis = el => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return cs.visibility !== 'hidden' && cs.display !== 'none' && r.width > 0 && r.height > 0; };
+  const m = window.__bfsgTexts = new Map();
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  while (w.nextNode()) { const el = w.currentNode.parentElement; if (el && w.currentNode.textContent.trim() && vis(el)) m.set(el, el.textContent.replace(/\s+/g, ' ').trim()); }
+  const style = f => { const cs = getComputedStyle(f); return [cs.borderTopColor, cs.borderBottomColor, cs.borderTopWidth, cs.outlineStyle, cs.outlineColor, cs.backgroundColor, cs.boxShadow, cs.color].join('|'); };
+  window.__bfsgStyle = style;
+  window.__bfsgStyles = selectors.map(sel => { const f = document.querySelector(sel); return f ? style(f) : null; });
+}
+
+// Im Browser: Was hat sich nach dem Absenden sichtbar verändert?
+function readErrorState(selectors) {
+  const vis = el => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return cs.visibility !== 'hidden' && cs.display !== 'none' && r.width > 0 && r.height > 0; };
+  const before = window.__bfsgTexts || new Map();
+  const fresh = [];
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  while (w.nextNode()) {
+    const el = w.currentNode.parentElement;
+    if (!el || !w.currentNode.textContent.trim() || /^(SCRIPT|STYLE|NOSCRIPT|OPTION)$/.test(el.tagName) || !vis(el)) continue;
+    const t = el.textContent.replace(/\s+/g, ' ').trim();
+    if (before.get(el) !== t && !fresh.some(f => f.el === el)) fresh.push({ el, t });
+  }
+  const fields = selectors.map((sel, i) => {
+    const f = document.querySelector(sel);
+    if (!f) return { gone: true };
+    const styleChanged = !!window.__bfsgStyles && window.__bfsgStyles[i] !== null && window.__bfsgStyle(f) !== window.__bfsgStyles[i];
+    return { gone: false, value: f.value, styleChanged };
+  });
+  return { texts: [...new Set(fresh.map(x => x.t.slice(0, 160)))].slice(0, 5), fields };
+}
+
 // Öffnet eine Seite frisch und führt optional Schritte aus (für jeden Formulartest neu).
 async function openFresh(context, url, steps, opts) {
   const page = await context.newPage();
@@ -676,8 +708,13 @@ async function triggerForm(context, page, form, opts) {
   context.on('page', onPage);
   await context.route('**/*', guard);
   const used = [];
+  const selectors = form.fields.map(f => f.selector);
   try {
+    await page.evaluate(markVisibleTexts, selectors);
     await page.evaluate(armFormProbe);
+    // Verändert sich die Seite auch ohne Zutun (Slider, Animationen)? Dann taugen DOM-Änderungen nicht als Reaktion.
+    await page.waitForTimeout(800);
+    const idle = await page.evaluate(() => { const n = window.__bfsgForm.mutations; window.__bfsgForm.mutations = 0; return n; });
     const t = { timeout: 3000 };
     for (const f of form.fields) {
       const loc = page.locator(f.selector).first();
@@ -688,7 +725,7 @@ async function triggerForm(context, page, form, opts) {
         if (empty < 0) continue;
         await loc.selectOption({ index: empty }, t);
       }
-      used.push({ label: f.label, value: f.plan.value, why: f.plan.why });
+      used.push({ label: f.label, value: f.plan.value, why: f.plan.why, action: f.plan.action, index: form.fields.indexOf(f) });
     }
     if (form.submit) await page.locator(form.submit.selector).first().click(t);
     else if (form.fields.some(f => f.plan.action === 'fill')) await page.locator(form.fields.find(f => f.plan.action === 'fill').selector).first().press('Enter', t);
@@ -697,11 +734,13 @@ async function triggerForm(context, page, form, opts) {
     const probe = await page.evaluate(() => window.__bfsgForm || null).catch(() => null);
     if (blocked.some(b => b.isSubmit)) return { result: 'abgeschickt', used, note: '' };
     if (!probe) return { result: 'keine-reaktion', used, note: 'Seite nach dem Absenden nicht mehr auswertbar' };
-    if (probe.invalid > 0 && probe.submit === 0) return { result: 'browser', used, note: '' };
-    if (dialogs.length) return { result: 'alert', used, note: `„${dialogs[0]}“` };
-    if (probe.submit > 0 && probe.prevented) return { result: 'skript', used, note: '' };
-    if (probe.mutations > 0) return { result: 'skript', used, note: '' };
-    return { result: 'keine-reaktion', used, note: '' };
+    let res;
+    if (probe.invalid > 0 && probe.submit === 0) res = { result: 'browser', used, note: '' };
+    else if (dialogs.length) res = { result: 'alert', used, note: `„${dialogs[0]}“` };
+    else if ((probe.submit > 0 && probe.prevented) || (probe.mutations > 0 && idle === 0)) res = { result: 'skript', used, note: '' };
+    else return { result: 'keine-reaktion', used, note: '' };
+    res.state = await page.evaluate(readErrorState, selectors).catch(() => null);
+    return res;
   } catch (e) {
     const msg = e.message.split('\n')[0];
     const why = /intercepts pointer events/i.test(msg) ? 'Button verdeckt (z. B. durch Cookie-Banner)'
@@ -713,6 +752,37 @@ async function triggerForm(context, page, form, opts) {
     context.off('page', onPage);
     for (const p of popups) await p.close().catch(() => {});
   }
+}
+
+const FORM_META = {
+  'error-no-text': ['kritisch', 'Fehler ohne Fehlermeldung', '3.3.1 Fehlererkennung (A)',
+    'Das Absenden wurde verhindert, aber es erscheint kein Text, der den Fehler beschreibt. Meldung als Text am Feld ausgeben, z. B. „Bitte E-Mail-Adresse im Format name@beispiel.de eingeben“.'],
+  'error-color-only': ['kritisch', 'Fehler nur durch Farbe gekennzeichnet', '1.4.1 Benutzung von Farbe (A) / 3.3.1 Fehlererkennung (A)',
+    'Das Feld wird nur farbig markiert (z. B. roter Rahmen). Wer Farben nicht unterscheiden kann oder einen Screenreader nutzt, erfährt nichts. Fehlertext am Feld ergänzen.'],
+  'input-lost': ['empfehlung', 'Eingaben gehen nach einem Fehler verloren', '3.3.7 Redundante Eingabe (A, WCAG 2.2)',
+    'Nach der Fehlermeldung sind bereits eingegebene Werte gelöscht. Eingaben stehen lassen und nur das fehlerhafte Feld markieren.'],
+};
+
+// Wertet aus, ob nach dem Absenden ein Fehlertext erscheint und Eingaben erhalten bleiben (Issue #3).
+function evaluateErrorState(entry, r, form, place, report) {
+  if (!['browser', 'alert', 'skript'].includes(r.result)) return;
+  const st = r.state;
+  const at = `${place} → Formular „${entry.name}“`;
+  const add = (id, where) => { const [sev, title, wcag, hint] = FORM_META[id]; findingFor(report, id, sev, title, wcag, hint).locations.push(where); };
+  entry.errorText = r.result === 'browser' ? 'Fehlerblase des Browsers' : r.result === 'alert' ? `alert(): ${r.note}` : null;
+  if (st && st.texts.length) entry.errorText = (entry.errorText ? entry.errorText + '; ' : '') + st.texts.map(t => `„${t}“`).join(', ');
+  if (r.result === 'skript' && st && !st.texts.length) {
+    const colored = r.used.filter(u => st.fields[u.index] && st.fields[u.index].styleChanged);
+    if (colored.length) add('error-color-only', `${at} → ${colored.map(u => u.label).join(', ')}`);
+    else add('error-no-text', at);
+    entry.errorText = colored.length ? 'keiner — nur farbig markiert' : 'keiner';
+  }
+  if (st) {
+    const typed = r.used.filter(u => u.action === 'fill' && u.value !== '' && st.fields[u.index] && !st.fields[u.index].gone);
+    const lost = typed.filter(u => st.fields[u.index].value !== u.value);
+    entry.inputsKept = typed.length ? !lost.length : null;
+    if (lost.length) add('input-lost', `${at} → ${lost.map(u => u.label).join(', ')}`);
+  } else entry.inputsKept = null;
 }
 
 // Prüft alle Formulare eines Zustands; jedes Formular auf einer frisch geöffneten Seite.
@@ -733,7 +803,8 @@ async function testForms(context, url, steps, label, opts, report) {
     try { p = await openFresh(context, url, steps, opts); } catch (e) { entry.result = 'fehler'; entry.note = `Seite nicht geladen: ${e.message.split('\n')[0]}`; continue; }
     try {
       const r = await triggerForm(context, p, form, opts);
-      entry.result = r.result; entry.note = r.note || ''; entry.inputs = r.used;
+      entry.result = r.result; entry.note = r.note || ''; entry.inputs = r.used.map(({ action, index, ...u }) => u);
+      evaluateErrorState(entry, r, form, place, report);
       if (!form.fields.length && r.result !== 'fehler') entry.note = (entry.note ? entry.note + '; ' : '') + 'keine Eingabe-Vorgaben erkennbar, leer abgeschickt';
     } finally {
       await p.close().catch(() => {});
@@ -839,7 +910,11 @@ function renderMd(report) {
       for (const f of report.forms) {
         const inputs = f.inputs.length ? f.inputs.map(i => `${i.label}: ${i.value === '' ? 'leer' : `„${i.value}“`} (${i.why})`).join('; ') : '–';
         const where = f.places.length > 1 ? `${f.places[0]} und ${f.places.length - 1} weitere` : f.places[0];
-        out.push(`| ${cell(f.name)} | ${cell(where)} | ${cell(inputs)} | ${cell(FORM_RESULTS[f.result] || f.result)}${f.note ? ` (${cell(f.note)})` : ''} |`);
+        const extra = [];
+        if (f.errorText) extra.push(`Fehlertext: ${f.errorText}`);
+        if (f.inputsKept === true) extra.push('Eingaben bleiben erhalten');
+        if (f.inputsKept === false) extra.push('Eingaben gehen verloren');
+        out.push(`| ${cell(f.name)} | ${cell(where)} | ${cell(inputs)} | ${cell(FORM_RESULTS[f.result] || f.result)}${f.note && f.result !== 'alert' ? ` (${cell(f.note)})` : ''}${extra.length ? `<br>${cell(extra.join(' · '))}` : ''} |`);
       }
     }
   }
