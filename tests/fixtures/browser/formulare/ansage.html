@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><title>Fehler ansagen – Testseite</title>
+<style>.fehler { color: #b00020; } [aria-invalid="true"] { border: 2px solid #b00020; }</style></head>
+<body>
+<main>
+  <h1>Fehler ansagen</h1>
+
+  <!-- Gut: verknüpft, aria-invalid, Fokus springt ins erste fehlerhafte Feld -->
+  <h2>Lieferadresse</h2>
+  <form class="gut-fokus" novalidate>
+    <label for="strasse">Straße</label>
+    <input id="strasse" name="strasse" required aria-describedby="strasse-fehler">
+    <p id="strasse-fehler" class="fehler" hidden></p>
+    <label for="lplz">Postleitzahl</label>
+    <input id="lplz" name="lplz" pattern="[0-9]{5}" aria-describedby="lplz-fehler">
+    <p id="lplz-fehler" class="fehler" hidden></p>
+    <button>Weiter</button>
+  </form>
+
+  <!-- Gut: verknüpft, aria-invalid, Zusammenfassung in einer Live-Region -->
+  <h2>Kundenkonto</h2>
+  <div role="alert" id="konto-summe"></div>
+  <form class="gut-live" novalidate>
+    <label for="kmail">E-Mail</label>
+    <input id="kmail" name="kmail" type="email" required aria-describedby="kmail-fehler">
+    <p id="kmail-fehler" class="fehler" hidden></p>
+    <button>Konto anlegen</button>
+  </form>
+
+  <!-- Schlecht: Meldung steht neben dem Feld, ist aber nicht verknüpft (wird per role=alert angesagt) -->
+  <h2>Zugang</h2>
+  <form class="unverknuepft" novalidate>
+    <div class="feld">
+      <label for="zname">Benutzername</label>
+      <input id="zname" name="zname" required>
+    </div>
+    <button>Einloggen</button>
+  </form>
+
+  <!-- Schlecht: verknüpft, aber kein aria-invalid und keine Ansage -->
+  <h2>Termin</h2>
+  <form class="stumm-verknuepft" novalidate>
+    <label for="tdatum">Wunschtermin</label>
+    <input id="tdatum" name="tdatum" required aria-describedby="tdatum-fehler">
+    <p id="tdatum-fehler" class="fehler" hidden></p>
+    <button>Anfragen</button>
+  </form>
+</main>
+<script>
+function pruefe(form, setInvalid) {
+  const fehler = [];
+  for (const input of form.querySelectorAll('input')) {
+    const ok = input.checkValidity();
+    const m = document.getElementById(input.id + '-fehler');
+    if (setInvalid) input.setAttribute('aria-invalid', String(!ok));
+    if (m) { m.textContent = ok ? '' : 'Bitte ' + input.labels[0].textContent + ' korrekt angeben.'; m.hidden = ok; }
+    if (!ok) fehler.push(input);
+  }
+  return fehler;
+}
+document.querySelector('.gut-fokus').addEventListener('submit', e => {
+  const f = pruefe(e.target, true);
+  if (f.length) { e.preventDefault(); f[0].focus(); }
+});
+document.querySelector('.gut-live').addEventListener('submit', e => {
+  const f = pruefe(e.target, true);
+  if (f.length) { e.preventDefault(); document.getElementById('konto-summe').textContent = f.length + ' Fehler: Bitte E-Mail prüfen.'; }
+});
+document.querySelector('.unverknuepft').addEventListener('submit', e => {
+  const input = e.target.querySelector('input');
+  if (!input.value.trim()) {
+    e.preventDefault();
+    input.setAttribute('aria-invalid', 'true');
+    const span = document.createElement('span');
+    span.setAttribute('role', 'alert'); span.className = 'fehler';
+    span.textContent = 'Bitte Benutzernamen eingeben.';
+    input.parentElement.appendChild(span);
+  }
+});
+document.querySelector('.stumm-verknuepft').addEventListener('submit', e => {
+  if (pruefe(e.target, false).length) e.preventDefault();
+});
+</script>
+</body>
+</html>

@@ -93,7 +93,7 @@ Pflichtfeld-Hinweis einmal oberhalb des Formulars als Text: "Felder mit * sind P
 
 ### Fehler beim Absenden (3.3.1, 1.4.1, 3.3.7)
 
-Passt zu den Befunden `error-no-text`, `error-color-only` und `input-lost` aus `browser-scan.mjs --forms`. Grundsätze: Fehler als Text am Feld (nicht nur roter Rahmen), Feld per `aria-invalid` und `aria-describedby` markieren, Fokus auf das erste fehlerhafte Feld, eingegebene Werte stehen lassen (kein `form.reset()`, kein Neurendern mit leeren Werten). Für eigene Meldungen statt der Browser-Fehlerblase `novalidate` ans `<form>` setzen.
+Passt zu den Befunden `error-no-text`, `error-color-only`, `error-not-linked`, `error-no-aria-invalid`, `error-not-announced` und `input-lost` aus `browser-scan.mjs --forms`. Grundsätze: Fehler als Text am Feld (nicht nur roter Rahmen), Feld per `aria-invalid` und `aria-describedby` markieren, Fehler ansagen — Fokus auf das erste fehlerhafte Feld oder eine Zusammenfassung in einer schon vorhandenen Live-Region (`<div role="alert">`), eingegebene Werte stehen lassen (kein `form.reset()`, kein Neurendern mit leeren Werten). Für eigene Meldungen statt der Browser-Fehlerblase `novalidate` ans `<form>` setzen.
 
 ```js
 form.addEventListener('submit', (e) => {

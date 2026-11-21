@@ -652,13 +652,28 @@ function readErrorState(selectors) {
     const t = el.textContent.replace(/\s+/g, ' ').trim();
     if (before.get(el) !== t && !fresh.some(f => f.el === el)) fresh.push({ el, t });
   }
+  const hasFresh = el => !!el && fresh.some(x => el.contains(x.el) || x.el.contains(el));
+  const live = el => { const l = el.closest('[role=alert],[role=status],[role=log],[aria-live=polite],[aria-live=assertive],output'); return !!l && !el.closest('[aria-live=off]'); };
   const fields = selectors.map((sel, i) => {
     const f = document.querySelector(sel);
     if (!f) return { gone: true };
     const styleChanged = !!window.__bfsgStyles && window.__bfsgStyles[i] !== null && window.__bfsgStyle(f) !== window.__bfsgStyles[i];
-    return { gone: false, value: f.value, styleChanged };
+    // Programmatisch verknüpft: Meldung steckt in aria-describedby, aria-errormessage oder im Label
+    const ids = `${f.getAttribute('aria-describedby') || ''} ${f.getAttribute('aria-errormessage') || ''} ${f.getAttribute('aria-labelledby') || ''}`.split(/\s+/).filter(Boolean);
+    const linked = ids.some(id => hasFresh(document.getElementById(id))) || [...(f.labels || [])].some(hasFresh);
+    // Sichtbar in der Nähe: neuer Text im selben Feld-Container (nicht erst auf Formular-Ebene)
+    let near = false;
+    for (let a = f.parentElement, k = 0; a && k < 3 && a !== document.body && a.tagName !== 'FORM'; a = a.parentElement, k++) {
+      if (fresh.some(x => a.contains(x.el) && !x.el.contains(f) && ![...(f.labels || [])].includes(x.el))) { near = true; break; }
+    }
+    const ariaInvalid = ['true', 'grammar', 'spelling'].includes((f.getAttribute('aria-invalid') || '').toLowerCase());
+    return { gone: false, value: f.value, styleChanged, linked, near, ariaInvalid };
   });
-  return { texts: [...new Set(fresh.map(x => x.t.slice(0, 160)))].slice(0, 5), fields };
+  const ae = document.activeElement;
+  const focusField = selectors.findIndex(sel => document.querySelector(sel) === ae);
+  const focusOnText = !!ae && ae !== document.body && fresh.some(x => ae.contains(x.el));
+  return { texts: [...new Set(fresh.map(x => x.t.slice(0, 160)))].slice(0, 5), fields,
+    live: fresh.some(x => live(x.el)), focusField, focusOnText };
 }
 
 // Öffnet eine Seite frisch und führt optional Schritte aus (für jeden Formulartest neu).
@@ -759,6 +774,12 @@ const FORM_META = {
     'Das Absenden wurde verhindert, aber es erscheint kein Text, der den Fehler beschreibt. Meldung als Text am Feld ausgeben, z. B. „Bitte E-Mail-Adresse im Format name@beispiel.de eingeben“.'],
   'error-color-only': ['kritisch', 'Fehler nur durch Farbe gekennzeichnet', '1.4.1 Benutzung von Farbe (A) / 3.3.1 Fehlererkennung (A)',
     'Das Feld wird nur farbig markiert (z. B. roter Rahmen). Wer Farben nicht unterscheiden kann oder einen Screenreader nutzt, erfährt nichts. Fehlertext am Feld ergänzen.'],
+  'error-not-linked': ['wichtig', 'Fehlermeldung nicht mit dem Feld verknüpft', '3.3.1 Fehlererkennung (A) / 1.3.1 Info und Beziehungen (A)',
+    'Die Meldung ist sichtbar, aber nicht mit dem Feld verbunden. Wer per Screenreader auf das Feld springt, hört sie nicht. Meldung per `aria-describedby` (oder `aria-errormessage`) mit dem Feld verknüpfen.'],
+  'error-no-aria-invalid': ['empfehlung', 'Fehlerhaftes Feld nicht als ungültig markiert', '3.3.1 Fehlererkennung (A), Technik ARIA21',
+    'Das Feld wird optisch als fehlerhaft gezeigt, aber nicht für Screenreader. `aria-invalid="true"` setzen, solange der Fehler besteht.'],
+  'error-not-announced': ['wichtig', 'Fehler werden nicht angesagt', '4.1.3 Statusmeldungen (AA) / 3.3.1 Fehlererkennung (A)',
+    'Nach dem Absenden erscheint die Meldung, aber ein Screenreader sagt nichts: Sie steht in keiner Live-Region, und der Fokus bleibt auf dem Button. Fokus auf das erste fehlerhafte Feld bzw. eine Fehlerzusammenfassung setzen oder die Meldung in `role="alert"` ausgeben.'],
   'input-lost': ['empfehlung', 'Eingaben gehen nach einem Fehler verloren', '3.3.7 Redundante Eingabe (A, WCAG 2.2)',
     'Nach der Fehlermeldung sind bereits eingegebene Werte gelöscht. Eingaben stehen lassen und nur das fehlerhafte Feld markieren.'],
 };
@@ -777,12 +798,29 @@ function evaluateErrorState(entry, r, form, place, report) {
     else add('error-no-text', at);
     entry.errorText = colored.length ? 'keiner — nur farbig markiert' : 'keiner';
   }
+  if (r.result === 'skript' && st && st.texts.length) checkAnnouncement(entry, r, st, at, add);
   if (st) {
     const typed = r.used.filter(u => u.action === 'fill' && u.value !== '' && st.fields[u.index] && !st.fields[u.index].gone);
     const lost = typed.filter(u => st.fields[u.index].value !== u.value);
     entry.inputsKept = typed.length ? !lost.length : null;
     if (lost.length) add('input-lost', `${at} → ${lost.map(u => u.label).join(', ')}`);
   } else entry.inputsKept = null;
+}
+
+// Wird die sichtbare Meldung auch einem Screenreader vermittelt? (Issue #4)
+// Nur bei Prüfung per Skript: Fehlerblase und alert() sagt der Browser selbst an.
+function checkAnnouncement(entry, r, st, at, add) {
+  const f = u => st.fields[u.index];
+  // Felder, die die Seite erkennbar als fehlerhaft behandelt
+  const affected = r.used.filter(u => f(u) && !f(u).gone && (f(u).ariaInvalid || f(u).styleChanged || f(u).near || f(u).linked));
+  const notLinked = affected.filter(u => !f(u).linked);
+  const noInvalid = affected.filter(u => !f(u).ariaInvalid);
+  if (notLinked.length) add('error-not-linked', `${at} → ${notLinked.map(u => u.label).join(', ')}`);
+  if (noInvalid.length) add('error-no-aria-invalid', `${at} → ${noInvalid.map(u => u.label).join(', ')}`);
+  const how = st.live ? 'per Live-Region' : st.focusField >= 0 ? 'Fokus springt ins Feld' : st.focusOnText ? 'Fokus springt zur Meldung' : null;
+  if (!how) add('error-not-announced', at);
+  entry.announced = how || 'nein';
+  entry.linked = !affected.length ? 'nur allgemeine Meldung, keinem Feld zuzuordnen' : !notLinked.length ? 'ja' : notLinked.length === affected.length ? 'nein' : 'teilweise';
 }
 
 // Prüft alle Formulare eines Zustands; jedes Formular auf einer frisch geöffneten Seite.
@@ -912,6 +950,8 @@ function renderMd(report) {
         const where = f.places.length > 1 ? `${f.places[0]} und ${f.places.length - 1} weitere` : f.places[0];
         const extra = [];
         if (f.errorText) extra.push(`Fehlertext: ${f.errorText}`);
+        if (f.linked) extra.push(`mit Feld verknüpft: ${f.linked}`);
+        if (f.announced) extra.push(`angesagt: ${f.announced}`);
         if (f.inputsKept === true) extra.push('Eingaben bleiben erhalten');
         if (f.inputsKept === false) extra.push('Eingaben gehen verloren');
         out.push(`| ${cell(f.name)} | ${cell(where)} | ${cell(inputs)} | ${cell(FORM_RESULTS[f.result] || f.result)}${f.note && f.result !== 'alert' ? ` (${cell(f.note)})` : ''}${extra.length ? `<br>${cell(extra.join(' · '))}` : ''} |`);

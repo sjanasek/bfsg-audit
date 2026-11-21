@@ -14,6 +14,11 @@
   - Seiten, die sich ohne Zutun verändern (Slider, Animationen), werden nicht als Reaktion gewertet
   - bis zu 10 Formulare je Seite bzw. Zustand
   - Fix-Muster „Fehler beim Absenden“ in `references/fix-muster.md`; WCAG-Prüfliste zeigt, was `--forms` abdeckt
+- Neu: Wird die Fehlermeldung angesagt? (Issue #4)
+  - Befund „Fehlermeldung nicht mit dem Feld verknüpft“ (3.3.1 / 1.3.1, wichtig): Meldung steht nicht in `aria-describedby`, `aria-errormessage` oder im Label
+  - Befund „Fehlerhaftes Feld nicht als ungültig markiert“ (`aria-invalid`, Empfehlung)
+  - Befund „Fehler werden nicht angesagt“ (4.1.3, wichtig): weder Live-Region noch Fokus auf Feld oder Meldung
+  - Formular-Tabelle zeigt, ob die Meldung verknüpft ist und wie sie angesagt wird; im JSON `linked` und `announced`
 - CI: Test-Rechner fest auf Ubuntu 24.04 (Playwright 1.56 unterstützt Ubuntu 26.04 nicht)
 
 ## 1.3.0 — 2026-10-28

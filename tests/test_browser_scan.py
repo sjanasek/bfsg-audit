@@ -417,7 +417,68 @@ class Formulare(BrowserScanBase):
         for name in ("Kontakt", "Newsletter", "Gutschein", "Rückruf"):
             self.assertNotIn(f"„{name}", alle)
 
+    def test_allgemeine_meldung_nicht_angesagt(self):
+        locs = " ".join(ids(self.data)["error-not-announced"]["locations"])
+        self.assertIn("Newsletter", locs)
+        self.assertIn("Profil", locs)
+        self.assertNotIn("Kontakt", locs)   # Browser-Fehlerblase sagt der Browser selbst an
+        self.assertNotIn("Gutschein", locs)  # alert() ebenso
+        self.assertEqual(self.form("Newsletter")["linked"], "nur allgemeine Meldung, keinem Feld zuzuordnen")
+
     def test_laufende_animation_ist_keine_reaktion(self):
         # Button ohne Funktion, daneben ändert ein Ticker ständig die Seite: kein Befund, sondern manuell prüfen
         self.assertEqual(self.form("Nachricht an uns")["result"], "keine-reaktion")
         self.assertNotIn("Nachricht an uns", " ".join(ids(self.data)["error-no-text"]["locations"]))
+
+
+class FehlerAnsage(BrowserScanBase):
+    """--forms, Issue #4: Meldung mit dem Feld verknüpft, aria-invalid, angesagt."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        Handler.received.clear()
+        cls.code, cls.data, cls.err = run(f"{cls.base}/browser/formulare/ansage.html", "--no-axe", "--forms")
+        cls.received = list(Handler.received)
+
+    def form(self, name):
+        return next(f for f in self.data["forms"] if f["name"] == name)
+
+    def locs(self, fid):
+        f = ids(self.data).get(fid)
+        return f["locations"] if f else []
+
+    def test_gute_formulare_ohne_befund(self):
+        alle = " ".join(self.locs("error-not-linked") + self.locs("error-no-aria-invalid") + self.locs("error-not-announced"))
+        self.assertNotIn("Lieferadresse", alle)
+        self.assertNotIn("Kundenkonto", alle)
+        self.assertEqual(self.form("Lieferadresse")["announced"], "Fokus springt ins Feld")
+        self.assertEqual(self.form("Kundenkonto")["announced"], "per Live-Region")
+        self.assertEqual(self.form("Lieferadresse")["linked"], "ja")
+
+    def test_nicht_verknuepft(self):
+        locs = self.locs("error-not-linked")
+        self.assertEqual(len(locs), 1)
+        self.assertIn("Zugang", locs[0])
+        self.assertIn("Benutzername", locs[0])
+        self.assertEqual(ids(self.data)["error-not-linked"]["severity"], "wichtig")
+        # per role=alert angesagt, also kein Befund "nicht angesagt"
+        self.assertNotIn("Zugang", " ".join(self.locs("error-not-announced")))
+
+    def test_ohne_aria_invalid_und_ohne_ansage(self):
+        self.assertEqual(len(self.locs("error-no-aria-invalid")), 1)
+        self.assertIn("Wunschtermin", self.locs("error-no-aria-invalid")[0])
+        self.assertEqual(ids(self.data)["error-no-aria-invalid"]["severity"], "empfehlung")
+        self.assertEqual(len(self.locs("error-not-announced")), 1)
+        self.assertIn("Termin", self.locs("error-not-announced")[0])
+        self.assertEqual(self.form("Termin")["announced"], "nein")
+
+    def test_nichts_an_den_server_gesendet(self):
+        self.assertEqual(self.received, [])
+
+    def test_bericht(self):
+        p = subprocess.run(["node", SCRIPT, f"{self.base}/browser/formulare/ansage.html", "--max-pages", "0", "--no-axe", "--forms"],
+                           capture_output=True, text=True, timeout=180)
+        self.assertIn("mit Feld verknüpft: nein", p.stdout)
+        self.assertIn("angesagt: per Live-Region", p.stdout)
+        self.assertIn("Fehler werden nicht angesagt", p.stdout)

@@ -65,7 +65,7 @@ Fix-Code zu den häufigsten Punkten: `fix-muster.md`.
 | 3.2.1/3.2.2 Bei Fokus/Eingabe (A) | Keine unerwarteten Kontextwechsel (Auto-Submit bei `<select>`-Änderung) | ⚙️ (`onchange="this.form.submit()"`) 👤 | expliziter Button |
 | 3.2.3/3.2.4 Konsistente Navigation/Erkennung (AA) | Navigation und Komponenten seitenübergreifend gleich | 👤 | — |
 | 3.2.6 Konsistente Hilfe [2.2] (A) | Kontakt/Hilfe an gleicher Stelle auf allen Seiten | 👤 | Footer-Link |
-| 3.3.1 Fehlererkennung (A) | Fehler als Text, beim Feld, programmatisch verknüpft | ⚙️ (teilweise) 🧪 `--forms` (Fehlertext erscheint?) 👤 | `aria-describedby`, `aria-invalid` |
+| 3.3.1 Fehlererkennung (A) | Fehler als Text, beim Feld, programmatisch verknüpft | ⚙️ (teilweise) 🧪 `--forms` (Fehlertext erscheint? verknüpft? `aria-invalid`?) 👤 | `aria-describedby`, `aria-invalid` |
 | 3.3.2 Beschriftungen (A) | Jedes Feld hat sichtbares Label; Pflichtfelder gekennzeichnet | ⚙️ | `<label>`, `required` |
 | 3.3.3 Fehlerkorrektur (AA) | Korrekturvorschlag ("Bitte gültige PLZ mit 5 Ziffern") | 👤 | — |
 | 3.3.4 Fehlervermeidung (AA) | **Bestellung**: Prüfen, korrigieren oder stornieren vor Abschluss möglich | 👤 | Bestellübersicht vor "zahlungspflichtig bestellen" |
@@ -77,7 +77,7 @@ Fix-Code zu den häufigsten Punkten: `fix-muster.md`.
 | SC | Was prüfen | Wie | Typischer Fix |
 |---|---|---|---|
 | 4.1.2 Name, Rolle, Wert (A) | Custom-Komponenten (Dropdown, Tabs, Akkordeon, Toggle) haben Rolle, Namen, Zustand (`aria-expanded`, `aria-selected`, `aria-checked`); Buttons/iframes haben Namen | ⚙️🧪 | native Elemente oder ARIA Authoring Practices |
-| 4.1.3 Statusmeldungen (AA) | "In den Warenkorb gelegt", Fehleranzahl, Suchergebnisse → per `aria-live` angesagt | ⚙️ (Hinweis, wenn kein aria-live/role=status im Projekt) 👤 | `role="status"` |
+| 4.1.3 Statusmeldungen (AA) | "In den Warenkorb gelegt", Fehleranzahl, Suchergebnisse → per `aria-live` angesagt | ⚙️ (Hinweis, wenn kein aria-live/role=status im Projekt) 🧪 `--forms` (Fehlermeldungen angesagt?) 👤 | `role="status"` |
 
 ## 5. Brennpunkte nach § 19 BFSGV
 

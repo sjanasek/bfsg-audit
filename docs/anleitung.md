@@ -232,6 +232,10 @@ Im Bericht steht danach je Formular, mit welchen falschen Eingaben es getestet w
 Wurde das Absenden verhindert, schaut der Scan außerdem nach:
 
 - **Erscheint ein Fehlertext?** Wird ein Feld nur rot umrandet, erfahren Menschen, die Farben nicht unterscheiden können oder einen Screenreader nutzen, nichts davon. Das meldet der Scan als „Fehler nur durch Farbe gekennzeichnet“. Passiert gar nichts Sichtbares, meldet er „Fehler ohne Fehlermeldung“. Beides ist kritisch.
+- **Bekommt ein Screenreader die Meldung mit?** Eine sichtbare Meldung reicht nicht, wenn sie nicht vorgelesen wird. Der Scan meldet:
+  - „Fehlermeldung nicht mit dem Feld verknüpft“: Wer per Screenreader auf das Feld springt, hört die Meldung nicht. Abhilfe: `aria-describedby`.
+  - „Fehlerhaftes Feld nicht als ungültig markiert“: Das Feld sieht fehlerhaft aus, wird aber nicht als „ungültig“ vorgelesen. Abhilfe: `aria-invalid="true"`.
+  - „Fehler werden nicht angesagt“: Nach dem Klick auf Absenden passiert für Blinde scheinbar nichts. Abhilfe: Fokus auf das erste fehlerhafte Feld setzen oder die Meldung in einer Live-Region (`role="alert"`) ausgeben.
 - **Bleiben die Eingaben erhalten?** Löscht die Seite nach einem Fehler alles, was schon eingetippt war, meldet der Scan „Eingaben gehen nach einem Fehler verloren“ (Empfehlung).
 
 Suchfelder und Formulare ohne Texteingabe (z. B. „In den Warenkorb“) werden übersprungen. Ein Formular, das auf mehreren Seiten vorkommt, etwa der Newsletter im Footer, wird nur einmal geprüft.
